@@ -64,37 +64,68 @@ def predict_single(input_dict: dict) -> dict:
 
 def validate_batch_file(file_obj, file_name: str, file_size_bytes: int) -> tuple[pd.DataFrame | None, str | None]:
     """
-    Validate an uploaded batch file.
+    Validate an uploaded batch file before parsing.
     Returns (dataframe, None) on success, or (None, error_message) on failure.
     """
     # File extension check
     if not file_name.lower().endswith(".csv"):
         return None, "File must have a .csv extension."
 
-    # File size check
-    if file_size_bytes > MAX_FILE_SIZE_MB * 1024 * 1024:
-        return None, f"File size ({file_size_bytes / 1024 / 1024:.1f} MB) exceeds the {MAX_FILE_SIZE_MB} MB limit."
+    # Immediate pre-parse file size check
+    if file_size_bytes <= 0:
+        return None, "The uploaded file is empty (0 bytes)."
 
-    # Parse CSV
+    if file_size_bytes > MAX_FILE_SIZE_MB * 1024 * 1024:
+        return None, f"File size ({file_size_bytes / (1024 * 1024):.2f} MB) exceeds the maximum allowed limit of {MAX_FILE_SIZE_MB} MB."
+
+    # Check raw header row for duplicate column names before pandas auto-mangles them
     try:
+        import csv
+        if hasattr(file_obj, "seek"):
+            file_obj.seek(0)
+        # Read first line as text
+        raw_header = file_obj.readline()
+        if isinstance(raw_header, bytes):
+            raw_header = raw_header.decode("utf-8", errors="replace")
+        header_cols = [c.strip() for c in next(csv.reader([raw_header]))]
+        if len(header_cols) != len(set(header_cols)):
+            duplicates = [c for c in header_cols if header_cols.count(c) > 1]
+            return None, f"CSV contains duplicate column headers: {sorted(list(set(duplicates)))}"
+    except Exception:
+        pass
+
+    # Parse CSV with robust exception handling
+    try:
+        if hasattr(file_obj, "seek"):
+            file_obj.seek(0)
         df = pd.read_csv(file_obj)
+    except pd.errors.EmptyDataError:
+        return None, "The uploaded CSV file is empty or contains no records."
+    except pd.errors.ParserError as pe:
+        return None, f"Malformed CSV file syntax: {pe}"
     except Exception as e:
         return None, f"Could not parse CSV: {e}"
 
+    # Check for empty dataframe
+    if df.empty:
+        return None, "The CSV file contains column headers but zero data rows."
+
     # Row limit
     if len(df) > MAX_BATCH_ROWS:
-        return None, f"File has {len(df)} rows, exceeding the limit of {MAX_BATCH_ROWS}."
+        return None, f"File has {len(df):,} rows, which exceeds the limit of {MAX_BATCH_ROWS:,} rows per batch."
 
     return df, None
 
 
-def validate_batch_columns(df: pd.DataFrame) -> tuple[list[str], list[str]]:
+def validate_batch_columns(df: pd.DataFrame) -> tuple[list[str], list[str], list[str]]:
     """
-    Returns (present_required_cols, missing_required_cols).
+    Returns (present_required_cols, missing_required_cols, extra_cols).
+    Extra columns are safely ignored during inference but documented to the user.
     """
     present = [c for c in BATCH_REQUIRED_COLUMNS if c in df.columns]
     missing = [c for c in BATCH_REQUIRED_COLUMNS if c not in df.columns]
-    return present, missing
+    extra = [c for c in df.columns if c not in BATCH_REQUIRED_COLUMNS]
+    return present, missing, extra
 
 
 def predict_batch(df: pd.DataFrame, schema: dict) -> pd.DataFrame:

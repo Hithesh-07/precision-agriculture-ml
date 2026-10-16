@@ -1,4 +1,6 @@
-# AI-Powered Precision Agriculture and Crop Yield Optimization System
+# CropZen — AI-Powered Precision Agriculture and Crop Yield Optimization System
+
+Live Deployment: [https://cropzen.streamlit.app/](https://cropzen.streamlit.app/)
 
 An end-to-end Machine Learning web application designed to analyze historical agricultural records across Indian states, train multiple regression models, and estimate crop yields per hectare based on regional, meteorological, and farming inputs.
 
@@ -98,7 +100,7 @@ Saves:
 ```powershell
 .venv\Scripts\python.exe -m pytest tests/test_pipeline.py -v
 ```
-*(All 35 unit and integration tests covering data loading, schema validation, cleaning, prediction, translations, and out-of-range detection).*
+*(All 42 unit and integration tests covering data loading, schema validation, cleaning, prediction, translations, out-of-range detection, empty/corrupt CSV validation, and duplicate header detection).*
 
 ### 4. Launch the Web Application
 ```powershell

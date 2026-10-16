@@ -194,19 +194,24 @@ def prepare_single_record(input_dict: dict, schema: dict) -> pd.DataFrame:
     # Numeric validation
     for col in schema["numeric_features"]:
         val = input_dict.get(col)
-        if val is None:
+        if val is None or (isinstance(val, str) and val.strip() == ""):
             errors.append(f"'{col}' is required.")
             continue
         try:
             fval = float(val)
         except (TypeError, ValueError):
-            errors.append(f"'{col}' must be a number, got: {val!r}")
+            errors.append(f"'{col}' must be a valid number, got: {val!r}")
             continue
+
+        if np.isnan(fval) or np.isinf(fval):
+            errors.append(f"'{col}' cannot be NaN or infinite.")
+            continue
+
         lo, hi = FEATURE_RANGES.get(col, (None, None))
         if lo is not None and fval < lo:
-            errors.append(f"'{col}' = {fval} is below the minimum ({lo}).")
+            errors.append(f"'{col}' = {fval} is below the valid minimum ({lo}).")
         if hi is not None and fval > hi:
-            errors.append(f"'{col}' = {fval} exceeds the maximum ({hi}).")
+            errors.append(f"'{col}' = {fval} exceeds the valid maximum ({hi}).")
 
     if errors:
         raise ValueError("Input validation failed:\n" + "\n".join(f"  • {e}" for e in errors))

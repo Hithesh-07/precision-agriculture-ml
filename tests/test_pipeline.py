@@ -184,6 +184,27 @@ class TestSinglePrediction:
         with pytest.raises(ValueError):
             predict_single(bad)
 
+    def test_nan_numeric_raises(self):
+        from src.prediction import predict_single
+        bad = dict(self.VALID_INPUT)
+        bad["Annual_Rainfall"] = float("nan")
+        with pytest.raises(ValueError):
+            predict_single(bad)
+
+    def test_inf_numeric_raises(self):
+        from src.prediction import predict_single
+        bad = dict(self.VALID_INPUT)
+        bad["Fertilizer"] = float("inf")
+        with pytest.raises(ValueError):
+            predict_single(bad)
+
+    def test_negative_numeric_raises(self):
+        from src.prediction import predict_single
+        bad = dict(self.VALID_INPUT)
+        bad["Fertilizer"] = -100.0
+        with pytest.raises(ValueError):
+            predict_single(bad)
+
     def test_out_of_range_warning(self):
         from src.prediction import predict_single
         inp = dict(self.VALID_INPUT)
@@ -198,7 +219,7 @@ class TestSinglePrediction:
 class TestBatchValidation:
     def test_missing_columns_detected(self):
         df = pd.DataFrame({"Crop": ["Rice"], "Area": [5000]})
-        present, missing = validate_batch_columns(df)
+        present, missing, extra = validate_batch_columns(df)
         assert len(missing) > 0
         assert "Season" in missing
 
@@ -208,8 +229,21 @@ class TestBatchValidation:
             "State": "Uttar Pradesh", "Area": 5000.0,
             "Annual_Rainfall": 900.0, "Fertilizer": 500000.0, "Pesticide": 1000.0,
         }])
-        present, missing = validate_batch_columns(df)
+        present, missing, extra = validate_batch_columns(df)
         assert len(missing) == 0
+        assert len(extra) == 0
+
+    def test_extra_columns_reported(self):
+        df = pd.DataFrame([{
+            "Crop": "Rice", "Crop_Year": 2018, "Season": "Kharif",
+            "State": "Uttar Pradesh", "Area": 5000.0,
+            "Annual_Rainfall": 900.0, "Fertilizer": 500000.0, "Pesticide": 1000.0,
+            "Farmer_Notes": "High organic matter", "Soil_Type": "Alluvial"
+        }])
+        present, missing, extra = validate_batch_columns(df)
+        assert len(missing) == 0
+        assert "Farmer_Notes" in extra
+        assert "Soil_Type" in extra
 
     def test_file_size_limit(self):
         import io
@@ -218,6 +252,27 @@ class TestBatchValidation:
         _, err = validate_batch_file(fobj, "test.csv", 6 * 1024 * 1024)  # 6MB
         assert err is not None
         assert "5 MB" in err
+
+    def test_empty_file_rejected(self):
+        import io
+        fobj = io.BytesIO(b"")
+        _, err = validate_batch_file(fobj, "empty.csv", 0)
+        assert err is not None
+        assert "empty" in err.lower()
+
+    def test_header_only_file_rejected(self):
+        import io
+        fobj = io.BytesIO(b"Crop,Season,State,Crop_Year,Area,Annual_Rainfall,Fertilizer,Pesticide\n")
+        _, err = validate_batch_file(fobj, "headers_only.csv", 100)
+        assert err is not None
+        assert "zero data rows" in err.lower()
+
+    def test_duplicate_headers_rejected(self):
+        import io
+        fobj = io.BytesIO(b"Crop,Crop,Area\nRice,Wheat,100\n")
+        _, err = validate_batch_file(fobj, "duplicate_cols.csv", 50)
+        assert err is not None
+        assert "duplicate column" in err.lower()
 
     def test_non_csv_rejected(self):
         import io
