@@ -32,8 +32,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # ── project root on path ──────────────────────────────────────────────────────
-ROOT = Path(__file__).parent
-sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(ROOT.parent) not in sys.path:
+    sys.path.insert(0, str(ROOT.parent))
 
 from src.data_processing import (
     ALL_FEATURES,
