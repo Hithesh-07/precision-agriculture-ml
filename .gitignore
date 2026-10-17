@@ -9,3 +9,7 @@ __pycache__/
 *.log
 .DS_Store
 Thumbs.db
+
+# Large CSV datasets (>100MB) exceeding GitHub push limits
+data/cropzen_india_district_2000_2020.csv
+data/cropzen_india_combined_2000_2025.csv

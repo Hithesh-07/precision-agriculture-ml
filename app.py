@@ -39,10 +39,19 @@ from src.data_processing import (
     ALL_FEATURES,
     CATEGORICAL_FEATURES,
     DATA_PATH,
+    DATA_PATH_MODEL_READY,
+    DATA_PATH_DISTRICT,
+    DATA_PATH_OFFICIAL_2021_25,
+    DATA_PATH_COMBINED,
+    DATASET_REGISTRY,
     NUMERIC_FEATURES,
     TARGET,
     check_out_of_training_range,
     load_raw_data,
+    load_model_ready_data,
+    load_district_data,
+    load_official_2021_25_data,
+    load_combined_data,
     load_schema_info,
     prepare_single_record,
 )
@@ -473,6 +482,38 @@ def load_dataset() -> pd.DataFrame | None:
         return None
 
 
+@st.cache_data(show_spinner=False)
+def load_model_ready_cached() -> pd.DataFrame | None:
+    try:
+        return load_model_ready_data()
+    except Exception:
+        return None
+
+
+@st.cache_data(show_spinner=False)
+def load_district_cached() -> pd.DataFrame | None:
+    try:
+        return load_district_data()
+    except Exception:
+        return None
+
+
+@st.cache_data(show_spinner=False)
+def load_official_cached() -> pd.DataFrame | None:
+    try:
+        return load_official_2021_25_data()
+    except Exception:
+        return None
+
+
+@st.cache_data(show_spinner=False)
+def load_combined_cached() -> pd.DataFrame | None:
+    try:
+        return load_combined_data()
+    except Exception:
+        return None
+
+
 @st.cache_resource(show_spinner=False)
 def load_model_cached():
     try:
@@ -670,21 +711,64 @@ if page == "home":
             </div>
             """, unsafe_allow_html=True)
 
+        # ── Multi-Dataset Registry on Home ─────────────────────────────────────
+        st.markdown('<div class="section-title">Verified Data Assets & Usage Scope</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="font-size:0.88rem;color:#4B5563;margin-bottom:12px;">
+          CropZen maintains four dedicated agricultural data assets, cleanly separated between <strong>machine-learning training</strong> and <strong>exploratory / official reporting</strong>.
+        </div>
+        """, unsafe_allow_html=True)
+
+        d1, d2, d3, d4 = st.columns(4)
+        with d1:
+            st.markdown("""
+            <div class="card" style="padding:14px;border-top:3px solid #1F7A4D;">
+              <div style="font-size:0.75rem;font-weight:700;color:#1F7A4D;">MODEL TRAINING</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">Model-Ready (2000–20)</div>
+              <div style="font-size:0.78rem;color:#6B7280;">17,983 records · State level<br>Complete features (Area, Rainfall, Fertilizer, Pesticide) · Evaluated on held-out test split.</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with d2:
+            st.markdown("""
+            <div class="card" style="padding:14px;border-top:3px solid #0284C7;">
+              <div style="font-size:0.75rem;font-weight:700;color:#0284C7;">ORIGINAL BASELINE</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">Historical (1997–20)</div>
+              <div style="font-size:0.78rem;color:#6B7280;">19,689 records · State level<br>30 states, 55 crops. Historical baseline benchmark for multi-model comparisons.</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with d3:
+            st.markdown("""
+            <div class="card" style="padding:14px;border-top:3px solid #D97706;">
+              <div style="font-size:0.75rem;font-weight:700;color:#D97706;">DISTRICT EXPLORATION</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">District Level (2000–20)</div>
+              <div style="font-size:0.78rem;color:#6B7280;">311,488 records · 706 districts<br>Granular local production. Missing rainfall/inputs — used for geospatial EDA, not model training.</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with d4:
+            st.markdown("""
+            <div class="card" style="padding:14px;border-top:3px solid #9333EA;">
+              <div style="font-size:0.75rem;font-weight:700;color:#9333EA;">RECENT OFFICIAL</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">All-India (2020–25)</div>
+              <div style="font-size:0.78rem;color:#6B7280;">225 records · 2020-21 to 2024-25<br>Official production aggregates. Observed Yield missing — supervised validation prohibited.</div>
+            </div>
+            """, unsafe_allow_html=True)
+
         # ── Model status inline card ───────────────────────────────────────────
         st.markdown("")
         if is_model_ready():
             eval_meta = load_eval_cached()
             best = eval_meta.get("best_model", "Unknown") if eval_meta else "Unknown"
+            dataset_name = eval_meta.get("dataset_label", "CropZen Dataset") if eval_meta else "CropZen Dataset"
             metrics = eval_meta.get("metrics", {}).get(best, {}) if eval_meta else {}
             r2  = metrics.get("R2",   0)
             mae = metrics.get("MAE",  0)
             rmse= metrics.get("RMSE", 0)
             st.markdown(f"""
             <div class="card card-accent" style="margin-top:8px;">
-              <div style="font-size:0.85rem;color:#6B7280;margin-bottom:6px;">Active Model</div>
+              <div style="font-size:0.85rem;color:#6B7280;margin-bottom:6px;">Active Production Model &bull; {dataset_name}</div>
               <div style="font-size:1.1rem;font-weight:700;color:#1F7A4D;margin-bottom:8px;">⭐ {best}</div>
               <div style="display:flex;gap:32px;flex-wrap:wrap;">
-                <div><div style="font-size:1.4rem;font-weight:700;color:#1F7A4D;">{r2:.4f}</div><div style="font-size:0.75rem;color:#6B7280;">R² (Test)</div></div>
+                <div><div style="font-size:1.4rem;font-weight:700;color:#1F7A4D;">{r2:.4f}</div><div style="font-size:0.75rem;color:#6B7280;">R² (Held-Out Test)</div></div>
                 <div><div style="font-size:1.4rem;font-weight:700;color:#1F2937;">{mae:.2f}</div><div style="font-size:0.75rem;color:#6B7280;">MAE (t/ha)</div></div>
                 <div><div style="font-size:1.4rem;font-weight:700;color:#1F2937;">{rmse:.2f}</div><div style="font-size:0.75rem;color:#6B7280;">RMSE (t/ha)</div></div>
               </div>
@@ -1172,207 +1256,192 @@ elif page == "batch":
 elif page == "explorer":
     render_page_header(
         "📊", T("explorer_title", lang),
-        subtitle="Explore 19,689 historical Indian crop yield records with interactive filters and charts.",
+        subtitle="Multi-Dataset Explorer — inspect state-level model data, district historicals, official all-India statistics, and combined assets.",
         breadcrumb="CropZen › Dataset Explorer",
     )
 
-    df = load_dataset()
-    if df is None:
-        st.error("Dataset not found at data/crop_yield.csv.")
-        st.stop()
-
-    # ── Filters (sidebar + reset button) ──────────────────────────────────────
-    with st.sidebar:
-        st.markdown('<hr style="border:none;border-top:1px solid #D1E7DA;margin:8px 0;" />', unsafe_allow_html=True)
-        st.markdown("**🔍 Filters**")
-        all_crops   = sorted(df["Crop"].unique().tolist())
-        all_states  = sorted(df["State"].unique().tolist())
-        all_seasons = sorted(df["Season"].unique().tolist())
-        year_min, year_max = int(df["Crop_Year"].min()), int(df["Crop_Year"].max())
-
-        sel_crops   = st.multiselect(T("explorer_filter_crop",   lang), all_crops,   default=[])
-        sel_states  = st.multiselect(T("explorer_filter_state",  lang), all_states,  default=[])
-        sel_seasons = st.multiselect(T("explorer_filter_season", lang), all_seasons, default=[])
-        sel_years   = st.slider(T("explorer_filter_year", lang), year_min, year_max, (year_min, year_max))
-
-        if st.button("↺ Reset All Filters", use_container_width=True):
-            sel_crops   = []
-            sel_states  = []
-            sel_seasons = []
-            sel_years   = (year_min, year_max)
-            st.rerun()
-
-    # Apply filters
-    fdf = df.copy()
-    if sel_crops:   fdf = fdf[fdf["Crop"].isin(sel_crops)]
-    if sel_states:  fdf = fdf[fdf["State"].isin(sel_states)]
-    if sel_seasons: fdf = fdf[fdf["Season"].isin(sel_seasons)]
-    fdf = fdf[(fdf["Crop_Year"] >= sel_years[0]) & (fdf["Crop_Year"] <= sel_years[1])]
-
-    # Filter counter
-    filter_active = bool(sel_crops or sel_states or sel_seasons or sel_years != (year_min, year_max))
-    st.markdown(
-        f'<div class="info-notice">Showing <strong>{len(fdf):,}</strong> of <strong>{len(df):,}</strong> records'
-        + (" (filters active)" if filter_active else " (all records)") + "</div>",
-        unsafe_allow_html=True,
-    )
-
-    if fdf.empty:
-        st.warning("⚠️ **No records match the selected filter combination.** Try widening your filters.")
-        st.stop()
-
-    # ── Overview metrics ───────────────────────────────────────────────────────
-    col1, col2, col3 = st.columns(3)
-    col1.metric(T("explorer_rows", lang), f"{len(fdf):,}")
-    col2.metric(T("explorer_cols", lang), fdf.shape[1])
-    col3.metric("Unique Crops in Selection", fdf["Crop"].nunique() if "Crop" in fdf.columns else "—")
-
-    with st.expander("📋 Dataset Preview (first 20 rows)"):
-        st.dataframe(fdf.head(20), use_container_width=True)
-
-    # ── Missing value analysis ────────────────────────────────────────────────
-    st.markdown(f'<div class="section-title">{T("explorer_missing", lang)}</div>', unsafe_allow_html=True)
-    missing = fdf.isnull().sum().reset_index()
-    missing.columns = ["Column", "Missing Count"]
-    missing["Missing %"] = (missing["Missing Count"] / len(fdf) * 100).round(2)
-    if missing["Missing Count"].sum() == 0:
-        st.success("✅ No missing values in the filtered dataset.")
-    else:
-        st.dataframe(missing, use_container_width=True)
-
-    # ── Descriptive stats ─────────────────────────────────────────────────────
-    with st.expander(T("explorer_stats", lang)):
-        num_cols = [c for c in ["Area", "Annual_Rainfall", "Fertilizer", "Pesticide", "Yield"] if c in fdf.columns]
-        st.dataframe(fdf[num_cols].describe().round(4), use_container_width=True)
-
-    # ── Yield distribution ────────────────────────────────────────────────────
-    st.markdown(f'<div class="section-title">{T("explorer_distribution", lang)}</div>', unsafe_allow_html=True)
-    col_a, col_b = st.columns(2)
     _chart_layout = dict(font=dict(color="#1F2937"), plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
 
-    with col_a:
-        fig = px.histogram(
-            fdf, x="Yield", nbins=50,
-            title="Yield Distribution — Raw Values (t/ha)",
-            labels={"Yield": "Yield (t/ha)"},
-            color_discrete_sequence=["#1F7A4D"],
-            template="plotly_white",
-        )
-        fig.update_layout(**_chart_layout)
-        st.plotly_chart(fig, use_container_width=True)
+    ex_tab1, ex_tab2, ex_tab3, ex_tab4 = st.tabs([
+        "🌾 Model-Ready State Data (2000–20)",
+        "🗺️ District Historicals (2000–20)",
+        "🏛️ Official All-India (2020–25)",
+        "📂 Combined Asset (2000–25)"
+    ])
 
-    with col_b:
-        fdf_pos = fdf[fdf["Yield"] > 0].copy()
-        fdf_pos["log_yield"] = np.log1p(fdf_pos["Yield"])
-        fig2 = px.histogram(
-            fdf_pos, x="log_yield", nbins=50,
-            title="Yield Distribution — Log Scale (excludes zero-yield records)",
-            labels={"log_yield": "log(1 + Yield)"},
-            color_discrete_sequence=["#2D9D63"],
-            template="plotly_white",
-        )
-        fig2.update_layout(**_chart_layout)
-        st.plotly_chart(fig2, use_container_width=True)
+    # ── TAB 1: MODEL-READY HISTORICAL DATA ────────────────────────────────────
+    with ex_tab1:
+        st.markdown("""
+        <div class="info-notice">
+          <strong>Dataset:</strong> <code>cropzen_model_ready_2000_2020.csv</code> (State-level, 17,983 records)<br>
+          <strong>Scope:</strong> Full feature set (Crop, State, Season, Year, Area, Rainfall, Fertilizer, Pesticide, Yield). Used to train and test the predictive ML models.
+        </div>
+        """, unsafe_allow_html=True)
 
-    # ── Crop-wise comparison ──────────────────────────────────────────────────
-    st.markdown(f'<div class="section-title">{T("explorer_crop_compare", lang)}</div>', unsafe_allow_html=True)
-    top_n = min(20, fdf["Crop"].nunique())
-    top_crops = fdf.groupby("Crop")["Yield"].median().nlargest(top_n).index.tolist()
-    crop_df = fdf[fdf["Crop"].isin(top_crops)]
-    fig3 = px.box(
-        crop_df, x="Crop", y="Yield",
-        title=f"Yield Distribution by Crop — Top {top_n} by Median Yield (t/ha)",
-        labels={"Yield": "Yield (t/ha)"},
-        color="Crop",
-        color_discrete_sequence=px.colors.qualitative.Set3,
-        template="plotly_white",
-    )
-    fig3.update_layout(showlegend=False, xaxis_tickangle=-45, **_chart_layout)
-    st.plotly_chart(fig3, use_container_width=True)
+        df_mr = load_model_ready_cached()
+        if df_mr is None:
+            df_mr = load_dataset()
 
-    # ── Season & Year ─────────────────────────────────────────────────────────
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        st.markdown(f'<div class="section-title">{T("explorer_season_compare", lang)}</div>', unsafe_allow_html=True)
-        fig4 = px.box(
-            fdf, x="Season", y="Yield",
-            title="Yield Distribution by Season (t/ha)",
-            color="Season",
-            color_discrete_sequence=["#1F7A4D", "#2D9D63", "#4DB87E", "#80CEA0", "#B3E2C7", "#E0F4EC"],
-            template="plotly_white",
-        )
-        fig4.update_layout(showlegend=False, **_chart_layout)
-        st.plotly_chart(fig4, use_container_width=True)
+        if df_mr is not None:
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Records", f"{len(df_mr):,}")
+            c2.metric("Unique Crops", df_mr["Crop"].nunique())
+            c3.metric("States", df_mr["State"].nunique())
+            c4.metric("Years", f"{int(df_mr['Crop_Year'].min())}–{int(df_mr['Crop_Year'].max())}")
 
-    with col_s2:
-        st.markdown(f'<div class="section-title">{T("explorer_year_trend", lang)}</div>', unsafe_allow_html=True)
-        yr_df = fdf.groupby("Crop_Year")["Yield"].median().reset_index()
-        fig5 = px.line(
-            yr_df, x="Crop_Year", y="Yield",
-            title="Median Crop Yield per Year (t/ha)",
-            markers=True,
-            labels={"Yield": "Median Yield (t/ha)", "Crop_Year": "Year"},
-            color_discrete_sequence=["#1F7A4D"],
-            template="plotly_white",
-        )
-        fig5.update_layout(**_chart_layout)
-        st.plotly_chart(fig5, use_container_width=True)
+            # Top Crops & Yield distributions
+            col_a, col_b = st.columns(2)
+            with col_a:
+                fig_mr1 = px.histogram(
+                    df_mr, x="Yield", nbins=50,
+                    title="Yield Distribution (t/ha)",
+                    labels={"Yield": "Yield (t/ha)"},
+                    color_discrete_sequence=["#1F7A4D"],
+                    template="plotly_white",
+                )
+                fig_mr1.update_layout(**_chart_layout)
+                st.plotly_chart(fig_mr1, use_container_width=True)
 
-    # ── State-wise comparison ─────────────────────────────────────────────────
-    st.markdown(f'<div class="section-title">{T("explorer_state_compare", lang)}</div>', unsafe_allow_html=True)
-    state_df = fdf.groupby("State")["Yield"].median().reset_index().sort_values("Yield", ascending=True)
-    fig6 = px.bar(
-        state_df, x="Yield", y="State", orientation="h",
-        title="Median Crop Yield by State (t/ha)",
-        labels={"Yield": "Median Yield (t/ha)"},
-        color="Yield", color_continuous_scale=["#C9E8D5", "#1F7A4D"],
-        template="plotly_white",
-    )
-    fig6.update_layout(coloraxis_showscale=False, margin=dict(l=0, r=0, t=40, b=0), **_chart_layout)
-    st.plotly_chart(fig6, use_container_width=True)
+            with col_b:
+                top_crops_mr = df_mr.groupby("Crop")["Yield"].median().nlargest(12).reset_index()
+                fig_mr2 = px.bar(
+                    top_crops_mr, x="Yield", y="Crop", orientation="h",
+                    title="Top 12 Crops by Median Yield (t/ha)",
+                    labels={"Yield": "Median Yield (t/ha)"},
+                    color="Yield", color_continuous_scale=["#C9E8D5", "#1F7A4D"],
+                    template="plotly_white",
+                )
+                fig_mr2.update_layout(coloraxis_showscale=False, **_chart_layout)
+                st.plotly_chart(fig_mr2, use_container_width=True)
 
-    # ── Correlation heatmap ───────────────────────────────────────────────────
-    st.markdown(f'<div class="section-title">{T("explorer_correlation", lang)}</div>', unsafe_allow_html=True)
-    corr_cols = [c for c in ["Area", "Annual_Rainfall", "Fertilizer", "Pesticide", "Yield"] if c in fdf.columns]
-    corr_matrix = fdf[corr_cols].corr()
-    fig7 = px.imshow(
-        corr_matrix,
-        title="Pearson Correlation Matrix — Numerical Features",
-        color_continuous_scale="RdYlGn",
-        zmin=-1, zmax=1,
-        aspect="auto",
-        template="plotly_white",
-        text_auto=".2f",
-    )
-    fig7.update_layout(**_chart_layout)
-    st.plotly_chart(fig7, use_container_width=True)
-    st.caption(T("explorer_note_corr", lang))
+            with st.expander("📋 View Sample Records (first 25 rows)"):
+                st.dataframe(df_mr.head(25), use_container_width=True)
+        else:
+            st.error("Model-ready dataset unavailable.")
 
-    col_r1, col_r2 = st.columns(2)
-    with col_r1:
-        fig8 = px.scatter(
-            fdf.sample(min(2000, len(fdf)), random_state=42),
-            x="Annual_Rainfall", y="Yield",
-            title="Annual Rainfall vs Yield — Sample of 2,000 Records",
-            labels={"Annual_Rainfall": "Annual Rainfall (mm)", "Yield": "Yield (t/ha)"},
-            color="Season", opacity=0.6,
-            template="plotly_white",
-        )
-        fig8.update_layout(**_chart_layout)
-        st.plotly_chart(fig8, use_container_width=True)
+    # ── TAB 2: DISTRICT HISTORICALS ───────────────────────────────────────────
+    with ex_tab2:
+        st.markdown("""
+        <div class="info-notice">
+          <strong>Dataset:</strong> <code>cropzen_india_district_2000_2020.csv</code> (District-level, 311,488 records)<br>
+          <strong>Scope:</strong> High-resolution spatial data covering <strong>706 districts</strong> across 37 states.<br>
+          <strong>Notice:</strong> <code>Annual_Rainfall</code>, <code>Fertilizer</code>, and <code>Pesticide</code> are 100% missing in this dataset. It is used exclusively for localized geographic exploration, NOT for model training.
+        </div>
+        """, unsafe_allow_html=True)
 
-    with col_r2:
-        fig9 = px.scatter(
-            fdf.sample(min(2000, len(fdf)), random_state=42),
-            x="Area", y="Yield",
-            title="Cultivated Area vs Yield — Sample of 2,000 Records (log-X)",
-            labels={"Area": "Area (ha)", "Yield": "Yield (t/ha)"},
-            color="Season", opacity=0.6,
-            log_x=True,
-            template="plotly_white",
-        )
-        fig9.update_layout(**_chart_layout)
-        st.plotly_chart(fig9, use_container_width=True)
+        df_dist = load_district_cached()
+        if df_dist is not None:
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("District Records", f"{len(df_dist):,}")
+            c2.metric("Districts", f"{df_dist['District'].nunique():,}")
+            c3.metric("States", df_dist["State"].nunique())
+            c4.metric("Avg Area/Record", f"{df_dist['Area'].mean():,.1f} ha")
+
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                top_dist_prod = df_dist.groupby("State")["Production"].sum().nlargest(10).reset_index()
+                fig_d1 = px.bar(
+                    top_dist_prod, x="Production", y="State", orientation="h",
+                    title="Top 10 States by Total Production (District Sum)",
+                    color="Production", color_continuous_scale=["#FDE68A", "#D97706"],
+                    template="plotly_white",
+                )
+                fig_d1.update_layout(coloraxis_showscale=False, **_chart_layout)
+                st.plotly_chart(fig_d1, use_container_width=True)
+
+            with col_d2:
+                top_dist_crops = df_dist["Crop"].value_counts().head(10).reset_index()
+                top_dist_crops.columns = ["Crop", "Count"]
+                fig_d2 = px.pie(
+                    top_dist_crops, names="Crop", values="Count",
+                    title="Top 10 Most Frequently Reported Crops Across Districts",
+                    template="plotly_white",
+                )
+                fig_d2.update_layout(**_chart_layout)
+                st.plotly_chart(fig_d2, use_container_width=True)
+
+            with st.expander("📋 View Sample District Records (first 25 rows)"):
+                st.dataframe(df_dist[["State", "District", "Crop", "Crop_Year", "Season", "Area", "Production", "Yield"]].head(25), use_container_width=True)
+        else:
+            st.error("District-level dataset unavailable.")
+
+    # ── TAB 3: OFFICIAL ALL-INDIA 2021-2025 ────────────────────────────────────
+    with ex_tab3:
+        st.markdown("""
+        <div class="limitation-alert">
+          <strong>⚠️ Official 2020-21 to 2024-25 Validation Notice:</strong><br>
+          This official Ministry dataset (<code>cropzen_india_official_all_india_2021_2025.csv</code>, 225 rows) provides aggregate national crop production statistics.<br>
+          <strong>Critical Validation Status:</strong> The <code>Yield</code> and <code>Area</code> columns are <strong>100% missing</strong>. Supervised prediction accuracy CANNOT be validated against these records. We report official observed production statistics below without fabricating missing yield values.
+        </div>
+        """, unsafe_allow_html=True)
+
+        df_off = load_official_cached()
+        if df_off is not None:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Official Records", len(df_off))
+            c2.metric("Agricultural Years", "2020-21 to 2024-25")
+            c3.metric("Geography", "All-India Aggregate")
+
+            col_o1, col_o2 = st.columns(2)
+            with col_o1:
+                # Top crops by production in lakh tonnes
+                # Filter to lakh tonnes to avoid mixing units with cotton bales
+                tonnes_df = df_off[df_off["production_unit"] == "lakh tonnes"].copy()
+                top_off_crops = tonnes_df.groupby("Crop")["Production"].mean().nlargest(10).reset_index()
+                fig_o1 = px.bar(
+                    top_off_crops, x="Production", y="Crop", orientation="h",
+                    title="Top 10 Food Crops — Mean National Production (Lakh Tonnes)",
+                    labels={"Production": "Production (Lakh Tonnes)"},
+                    color="Production", color_continuous_scale=["#E9D5FF", "#7E22CE"],
+                    template="plotly_white",
+                )
+                fig_o1.update_layout(coloraxis_showscale=False, **_chart_layout)
+                st.plotly_chart(fig_o1, use_container_width=True)
+
+            with col_o2:
+                # Production trend over recent years for major crops
+                trend_crops = ["Rice", "Wheat", "Maize"]
+                trend_df = df_off[df_off["Crop"].isin(trend_crops) & (df_off["production_unit"] == "lakh tonnes")].groupby(["crop_year_label", "Crop"])["Production"].sum().reset_index()
+                fig_o2 = px.line(
+                    trend_df, x="crop_year_label", y="Production", color="Crop",
+                    title="Production Trajectory (2020-21 to 2024-25)",
+                    labels={"crop_year_label": "Agricultural Year", "Production": "Production (Lakh Tonnes)"},
+                    markers=True,
+                    template="plotly_white",
+                )
+                fig_o2.update_layout(**_chart_layout)
+                st.plotly_chart(fig_o2, use_container_width=True)
+
+            with st.expander("📋 View Complete Official Statistics Table"):
+                st.dataframe(df_off[["Crop", "Season", "crop_year_label", "Production", "production_unit", "estimate_status", "source"]], use_container_width=True)
+        else:
+            st.error("Official 2021-25 dataset unavailable.")
+
+    # ── TAB 4: COMBINED EXPLORATORY ASSET ──────────────────────────────────────
+    with ex_tab4:
+        st.markdown("""
+        <div class="info-notice">
+          <strong>Dataset:</strong> <code>cropzen_india_combined_2000_2025.csv</code> (311,713 rows)<br>
+          <strong>Scope:</strong> Master unified asset indexing both district records (2000–2020) and all-India official reports (2020–2025).<br>
+          <strong>Methodological Warning:</strong> Never aggregate records across different <code>geography_level</code> entries without grouping, as doing so introduces extreme scale distortion.
+        </div>
+        """, unsafe_allow_html=True)
+
+        df_comb = load_combined_cached()
+        if df_comb is not None:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Total Rows", f"{len(df_comb):,}")
+            c2.metric("District Rows", f"{(df_comb['geography_level'] == 'district').sum():,}")
+            c3.metric("All-India Rows", f"{(df_comb['geography_level'] == 'all_india').sum():,}")
+
+            st.dataframe(
+                df_comb.groupby(["geography_level", "estimate_status"])
+                .agg(record_count=("Crop_Year", "count"), min_year=("Crop_Year", "min"), max_year=("Crop_Year", "max"))
+                .reset_index(),
+                use_container_width=True
+            )
+        else:
+            st.error("Combined dataset unavailable.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1396,14 +1465,18 @@ elif page == "performance":
     _chart_layout = dict(font=dict(color="#1F2937"), plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
 
     # ── Best model summary ────────────────────────────────────────────────────
+    trained_dataset = eval_meta.get("dataset_label", "CropZen Dataset")
+    trained_file = eval_meta.get("dataset_file", "cropzen_model_ready_2000_2020.csv")
+    split_method = eval_meta.get("split_method", "Random 80/20")
     st.markdown(f"""
     <div class="card card-accent">
-      <div style="font-size:0.8rem;color:#6B7280;margin-bottom:4px;">Best Performing Model (lowest MAE on held-out test set)</div>
+      <div style="font-size:0.8rem;color:#6B7280;margin-bottom:4px;">Best Performing Model &bull; Evaluated on Held-Out Test Set</div>
       <div style="font-size:1.4rem;font-weight:700;color:#1F7A4D;">⭐ {best_model}</div>
-      <div style="font-size:0.82rem;color:#6B7280;margin-top:4px;">
-        Train: {eval_meta.get('train_size', 0):,} rows &nbsp;|&nbsp;
-        Test: {eval_meta.get('test_size', 0):,} rows &nbsp;|&nbsp;
-        Split: {eval_meta.get('split_method', '80/20 random')}
+      <div style="font-size:0.85rem;color:#374151;margin-top:4px;">
+        <strong>Training Dataset:</strong> {trained_dataset} (<code>{trained_file}</code>)<br>
+        <strong>Split Strategy:</strong> {split_method} &nbsp;|&nbsp;
+        <strong>Train Size:</strong> {eval_meta.get('train_size', 0):,} rows &nbsp;|&nbsp;
+        <strong>Held-Out Test Size:</strong> {eval_meta.get('test_size', 0):,} rows
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1616,31 +1689,36 @@ elif page == "training":
     """, unsafe_allow_html=True)
 
     st.markdown("""
-    **Step-by-step local retraining:**
+    **Step-by-step local retraining options:**
 
-    **1.** Activate the project virtual environment:
+    **1. Train on Curated Model-Ready Dataset (2000–2020) — Recommended:**
     ```powershell
-    .venv\\Scripts\\Activate.ps1
+    .venv\\Scripts\\python.exe train_model.py --dataset model_ready
     ```
 
-    **2.** Run the training script:
+    **2. Train on Original Baseline Dataset (1997–2020):**
     ```powershell
-    .venv\\Scripts\\python.exe train_model.py
+    .venv\\Scripts\\python.exe train_model.py --dataset original
     ```
 
-    **3.** Verify the output artifacts exist:
+    **3. Train with Time-Based Split (Train ≤2015, Test >2015):**
+    ```powershell
+    .venv\\Scripts\\python.exe train_model.py --dataset model_ready --split time --split-year 2015
+    ```
+
+    **4. Verify the output artifacts exist:**
     ```powershell
     ls models/best_model.pkl
     ls outputs/evaluation.json
     ls outputs/feature_schema.json
     ```
 
-    **4.** Restart the Streamlit app to load the new model:
+    **5. Restart the Streamlit app to load the new model:**
     ```powershell
     .venv\\Scripts\\python.exe -m streamlit run app.py
     ```
 
-    The last known-good model remains active if a new training run fails.
+    *Security note: CSV files uploaded through the Batch Prediction interface are used strictly for inference and cannot alter or replace training datasets.*
     """)
 
     # Show current model file info
@@ -1811,38 +1889,34 @@ elif page == "about":
             """)
 
     with tab2:
-        st.markdown(f"### {T('about_dataset', lang)}")
+        st.markdown("### 📂 Data Source Registry & Model Card")
         st.markdown("""
-        **Source:** Historical Indian agricultural crop production dataset (1997–2020), derived from
-        Ministry of Agriculture and Farmers Welfare public records / Kaggle open repositories.
-
-        **License:** Open educational dataset for non-commercial academic research.
+        CropZen integrates **four distinct agricultural datasets**, maintained under a strict data-governance policy to avoid mixing incompatible geographic aggregation levels or introducing data leakage:
         """)
 
         st.markdown("""
-        | Property | Value |
-        |----------|-------|
-        | Records | 19,689 rows |
-        | Columns | 10 |
-        | Unique Crops | 55 |
-        | States Covered | 30 |
-        | Agricultural Seasons | 6 (Kharif, Rabi, Whole Year, Summer, Autumn, Winter) |
-        | Historical Years | 1997–2020 |
+        | Dataset Name | File | Rows | Geography | Years | Role / Scope |
+        |---|---|---|---|---|---|
+        | **Model-Ready** | `cropzen_model_ready_2000_2020.csv` | 17,983 | State | 2000–2020 | **Model Training & Evaluation** (Area, Rainfall, Fertilizer, Pesticide) |
+        | **Original Baseline** | `crop_yield.csv` | 19,689 | State | 1997–2020 | **Historical Benchmark** (contains 1997–1999 baseline records) |
+        | **District-Level** | `cropzen_india_district_2000_2020.csv` | 311,488 | District (706) | 2000–2020 | **Geospatial EDA Only** (Missing rainfall, fertilizer, pesticide) |
+        | **Official All-India** | `cropzen_india_official_all_india_2021_2025.csv` | 225 | National Aggregate | 2020-21 to 2024-25 | **Official Reporting Only** (Observed Yield missing — no supervised validation) |
+        | **Combined Asset** | `cropzen_india_combined_2000_2025.csv` | 311,713 | Mixed | 2000–2025 | **Cross-Source Registry** (Requires grouping by geography_level) |
         """)
 
         st.markdown("""
-        **Validated Feature Schema:**
-        - **Input Features:** `Crop`, `Season`, `State`, `Crop_Year`, `Area` (ha), `Annual_Rainfall` (mm), `Fertilizer` (kg), `Pesticide` (kg)
+        **Validated Model Feature Schema:**
+        - **Input Features (8):** `Crop`, `Season`, `State`, `Crop_Year`, `Area` (ha), `Annual_Rainfall` (mm), `Fertilizer` (kg), `Pesticide` (kg)
         - **Target:** `Yield` (log1p-transformed during training; expm1 inverse applied to predictions; metric tonnes/ha)
 
         **Target Leakage Exclusion:** `Production` is strictly excluded because it represents post-harvest output
         and in many records correlates directly with the target computation (`Yield = Production / Area`),
         causing artificial target leakage.
 
-        **Empirical Evaluation Design:**
-        - Fixed 80/20 train/test split (seed=42) on 19,689 records (15,751 train / 3,938 test)
-        - 112 zero-yield records preserved as genuine historical crop failure events
-        - Tail crops (e.g., Coconut counted in units) inflate raw RMSE significantly
+        **Evaluation Design & Verification:**
+        - Trained with scikit-learn Pipelines combining `OrdinalEncoder` (handling unseen categories safely via `-1`) and `StandardScaler`.
+        - Held-out test evaluation using MAE, RMSE, and R² (never percentage accuracy).
+        - Official 2020-21 to 2024-25 data records do NOT contain observed yield values; no fabricated labels are generated.
         """)
 
     with tab3:

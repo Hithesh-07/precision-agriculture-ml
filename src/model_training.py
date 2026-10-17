@@ -73,12 +73,7 @@ MODEL_DESCRIPTIONS = {
 # ── split ─────────────────────────────────────────────────────────────────────
 def make_split(df: pd.DataFrame, feature_cols: list[str], target_col: str):
     """
-    Perform a random 80/20 stratified split on Crop_Year bins.
-    Random split is used because the dataset spans 24 years (1997–2020) and
-    the same crops / states appear across all years; a purely time-based split
-    would make the test set geographically representative but would exclude
-    recent years entirely from training. We document this limitation.
-
+    Perform a random 80/20 split.
     Limitation: rows from the same (crop, state) pair can appear in both sets.
     Future work could use GroupShuffleSplit on (Crop, State) groups.
     """
@@ -88,10 +83,57 @@ def make_split(df: pd.DataFrame, feature_cols: list[str], target_col: str):
         X, y, test_size=TEST_SIZE, random_state=RANDOM_SEED
     )
     logger.info(
-        "Split: %d train / %d test (random, seed=%d)",
+        "Random split: %d train / %d test (seed=%d)",
         len(X_train), len(X_test), RANDOM_SEED,
     )
     return X_train, X_test, y_train, y_test
+
+
+def make_time_split(
+    df: pd.DataFrame, feature_cols: list[str], target_col: str, split_year: int
+):
+    """
+    Time-based train/test split.
+    Train: rows where Crop_Year <= split_year.
+    Test:  rows where Crop_Year > split_year.
+
+    This avoids data leakage across years and provides a more realistic
+    estimate of how the model generalises to future agricultural seasons.
+    Metrics will typically be lower than random-split because the model
+    is never trained on any record from the test years.
+
+    Returns None if either split has fewer than 10 rows (safety check).
+    """
+    if "Crop_Year" not in df.columns:
+        logger.error("make_time_split: 'Crop_Year' column not found.")
+        return None
+
+    train_mask = df["Crop_Year"] <= split_year
+    test_mask  = df["Crop_Year"] > split_year
+
+    if train_mask.sum() < 10 or test_mask.sum() < 10:
+        logger.error(
+            "make_time_split: insufficient data. Train=%d, Test=%d.",
+            train_mask.sum(), test_mask.sum(),
+        )
+        return None
+
+    X_train = df.loc[train_mask, feature_cols]
+    X_test  = df.loc[test_mask,  feature_cols]
+    y_train = np.log1p(df.loc[train_mask, target_col].values)
+    y_test  = np.log1p(df.loc[test_mask,  target_col].values)
+
+    logger.info(
+        "Time-based split (year <= %d): %d train / %d test",
+        split_year, len(X_train), len(X_test),
+    )
+    train_years = sorted(df.loc[train_mask, "Crop_Year"].unique())
+    test_years  = sorted(df.loc[test_mask,  "Crop_Year"].unique())
+    logger.info("Train years: %d – %d", train_years[0], train_years[-1])
+    logger.info("Test years : %d – %d", test_years[0],  test_years[-1])
+
+    return X_train, X_test, y_train, y_test
+
 
 
 # ── metrics ───────────────────────────────────────────────────────────────────
@@ -208,7 +250,7 @@ def get_feature_importance(pipeline: Pipeline, feature_names: list[str]) -> dict
 
 
 # ── save / load ───────────────────────────────────────────────────────────────
-def save_artifacts(best_name: str, results: dict, X_train, X_test) -> None:
+def save_artifacts(best_name: str, results: dict, X_train, X_test, extra_meta: dict | None = None) -> None:
     """Save the selected pipeline, all metrics, and evaluation metadata."""
     MODELS_DIR.mkdir(exist_ok=True)
     OUTPUTS_DIR.mkdir(exist_ok=True)
@@ -232,12 +274,14 @@ def save_artifacts(best_name: str, results: dict, X_train, X_test) -> None:
         "test_size": len(X_test),
         "random_seed": RANDOM_SEED,
         "test_size_fraction": TEST_SIZE,
-        "split_method": "Random (sklearn train_test_split, seed=42)",
-        "split_limitation": (
+        "split_method": (extra_meta or {}).get("split_method", "Random (sklearn train_test_split, seed=42)"),
+        "split_limitation": (extra_meta or {}).get("split_limitation", (
             "Rows from the same (Crop, State) pair may appear in both "
             "train and test sets. Performance may look stronger than on "
             "fully unseen crops or states."
-        ),
+        )),
+        "dataset_label": (extra_meta or {}).get("dataset_label", "Unknown"),
+        "dataset_file":  (extra_meta or {}).get("dataset_file",  "Unknown"),
         "target": "Yield (log1p transformed during training; expm1 for output)",
         "target_unit": "tonnes per hectare (approximately)",
         "trained_at": datetime.now().isoformat(),
@@ -245,10 +289,16 @@ def save_artifacts(best_name: str, results: dict, X_train, X_test) -> None:
         "y_true_test": results[best_name]["y_true"],
         "y_pred_test": results[best_name]["y_pred"],
     }
+    # Merge any additional metadata keys
+    if extra_meta:
+        for k, v in extra_meta.items():
+            if k not in eval_meta:
+                eval_meta[k] = v
 
     with open(OUTPUTS_DIR / "evaluation.json", "w") as f:
         json.dump(eval_meta, f, indent=2)
     logger.info("Evaluation metadata saved: outputs/evaluation.json")
+
 
 
 def load_best_model() -> Pipeline:

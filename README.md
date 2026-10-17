@@ -22,18 +22,22 @@ This project implements a web-based system that:
 
 ---
 
-## 📊 Dataset Description & Data Audit Findings
+## 📊 Multi-Dataset Architecture & Data Audit Findings
 
-- **Location:** `data/crop_yield.csv` (19,689 records, 10 columns)
-- **Timeframe:** 1997 – 2020 (24 years)
-- **Coverage:** 55 unique crops, 30 Indian states, 6 agricultural seasons (*Kharif, Rabi, Whole Year, Summer, Autumn, Winter*)
-- **Missing Values:** 0 missing values across all columns.
-- **Duplicates:** 0 exact duplicate rows.
+CropZen manages **four verified datasets** under strict data governance:
+
+| Dataset | File | Rows | Geographic Level | Timeframe | Role & Governance |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Model-Ready (Curated)** | `data/cropzen_model_ready_2000_2020.csv` | 17,983 | State | 2000 – 2020 | **Candidate Training Dataset** (Complete features; evaluated on held-out test split) |
+| **Original Baseline** | `data/crop_yield.csv` | 19,689 | State | 1997 – 2020 | **Historical Benchmark** (Includes 1997–1999 baseline records) |
+| **District-Level** | `data/cropzen_india_district_2000_2020.csv` | 311,488 | District (706) | 2000 – 2020 | **Geospatial EDA Only** (Missing rainfall, fertilizer, pesticide — excluded from training) |
+| **Official All-India** | `data/cropzen_india_official_all_india_2021_2025.csv` | 225 | National Aggregate | 2020-21 to 2024-25 | **Official Reporting Only** (Observed Yield missing — supervised validation prohibited) |
+| **Combined Asset** | `data/cropzen_india_combined_2000_2025.csv` | 311,713 | Mixed | 2000 – 2025 | **Cross-Source Registry** (Requires grouping by geography_level) |
 
 ### Data Leakage Resolution
-- **Investigation:** In raw agricultural statistics, `Production` represents the aggregate volume harvested. In our data leakage audit, `Yield` matches `Production / Area` in only 5.7% of rows (due to unit variations, e.g., coconuts counted in nuts vs. grains in tonnes).
+- **Investigation:** In raw agricultural statistics, `Production` represents the aggregate volume harvested. In our data leakage audit, `Yield` matches `Production / Area` in only 21.4% of rows on state-level data and 97.2% on district data.
 - **Leakage Prevention Decision:** Since `Production` is an outcome measured post-harvest, including it would cause severe target leakage or trivial identity fitting. Therefore, **`Production` is strictly excluded from input features**.
-- **Model Features:**
+- **Model Features (8):**
   - *Categorical:* `Crop`, `Season`, `State`
   - *Numerical:* `Crop_Year`, `Area` (ha), `Annual_Rainfall` (mm), `Fertilizer` (kg), `Pesticide` (kg)
 - **Target Variable:** `Yield` (log1p transformed during training due to extreme right skewness, max 21,105 vs median 1.03; inverse `expm1` applied to output predictions).
@@ -42,15 +46,20 @@ This project implements a web-based system that:
 
 ## 🧠 Model Training & Evaluation Results
 
-All models were evaluated on the **same held-out 20% test split (3,938 records)** with `random_state=42`. Preprocessing is embedded inside scikit-learn `Pipeline` objects using `ColumnTransformer` (OrdinalEncoder for categorical variables, StandardScaler for numeric variables).
+All models were evaluated on the **held-out 20% test split** with `random_state=42`. Preprocessing is embedded inside scikit-learn `Pipeline` objects using `ColumnTransformer` (OrdinalEncoder for categorical variables handling unseen values, StandardScaler for numeric variables).
 
+### Results on Curated Model-Ready Dataset (2000–2020)
 | Model | MAE (tonnes/ha) | RMSE (tonnes/ha) | R² Score | Status |
 | :--- | :---: | :---: | :---: | :---: |
-| **Linear Regression** | 78.7675 | 898.1971 | -0.0069 | Baseline |
-| **Decision Tree Regressor** | **15.4667** | **297.1727** | **0.8898** | ⭐ **Selected Best Model** |
-| **Random Forest Regressor** | 22.8233 | 395.7511 | 0.8045 | Ensemble Candidate |
+| **Linear Regression** | 68.7350 | 842.1751 | -0.0059 | Baseline |
+| **Decision Tree Regressor** | **7.9144** | **121.4133** | **0.9791** | ⭐ **Selected Best Model** |
+| **Random Forest Regressor** | 12.1997 | 190.0501 | 0.9488 | Ensemble Candidate |
 
-*Note: R² measures the proportion of variance explained by the model (upper bounded by 1.0, can be negative for models performing worse than horizontal mean). It is not classification accuracy.*
+### Chronological Out-of-Sample Evaluation (Time-Based Split: Train ≤2015, Test >2015)
+- **Decision Tree Regressor:** MAE = 8.60 t/ha, RMSE = 107.92 t/ha, R² = 0.9839
+- Demonstrates strong out-of-time stability across unseen subsequent agricultural seasons.
+
+*Note: R² measures the proportion of variance explained by the model (upper bounded by 1.0). It is not classification accuracy. MAE and RMSE are expressed in tonnes per hectare.*
 
 ---
 
@@ -79,17 +88,21 @@ python -m venv .venv
 
 ## 🚀 Execution Commands
 
-### 1. Run Data Audit
-To inspect data quality, verify schema integrity, and check leakage rules:
+### 1. Run Comprehensive Data Audit
+To inspect data quality, verify schema integrity, check leakage, and audit all datasets:
 ```powershell
 .venv\Scripts\python.exe data_audit.py
 ```
-Outputs audit statistics to console and saves `outputs/audit_summary.json`.
+Outputs audit statistics, writes markdown report to `reports/data_audit.md`, and saves `outputs/audit_summary.json`.
 
 ### 2. Train / Retrain Machine Learning Models
-To fit the preprocessors, train all three regression algorithms, compare metrics on held-out data, and save artifacts:
+Train on the curated model-ready dataset:
 ```powershell
-.venv\Scripts\python.exe train_model.py
+.venv\Scripts\python.exe train_model.py --dataset model_ready
+```
+Or train with a chronological time-based split:
+```powershell
+.venv\Scripts\python.exe train_model.py --dataset model_ready --split time --split-year 2015
 ```
 Saves:
 - `models/best_model.pkl`: Serialized model pipeline
@@ -100,7 +113,7 @@ Saves:
 ```powershell
 .venv\Scripts\python.exe -m pytest tests/test_pipeline.py -v
 ```
-*(All 42 unit and integration tests covering data loading, schema validation, cleaning, prediction, translations, out-of-range detection, empty/corrupt CSV validation, and duplicate header detection).*
+*(47 unit and integration tests covering data loading, multi-dataset integrity, schema validation, cleaning, prediction, translations, out-of-range detection, empty/corrupt CSV validation, and missing-yield handling).*
 
 ### 4. Launch the Web Application
 ```powershell

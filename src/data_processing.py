@@ -4,6 +4,21 @@ src/data_processing.py
 Data loading, cleaning, and preprocessing utilities.
 All preprocessing is fitted on training data only and applied consistently
 to test data and new predictions.
+
+Dataset registry
+----------------
+Four datasets are managed by this project. Only the first two share the full
+feature schema required for model training.
+
+  DATA_PATH                   — Original 1997-2020 state-level dataset (training)
+  DATA_PATH_MODEL_READY       — Curated 2000-2020 state-level dataset (training)
+  DATA_PATH_DISTRICT          — District-level 2000-2020 (analysis only; no rainfall/fertilizer/pesticide)
+  DATA_PATH_OFFICIAL_2021_25  — All-India official 2020-21 to 2024-25 (no yield, no area; display only)
+  DATA_PATH_COMBINED          — District + All-India combined 2000-2025 (analysis only)
+
+Never combine district and all-India records in the same analysis without
+filtering by geography_level. Never use DATA_PATH_DISTRICT,
+DATA_PATH_OFFICIAL_2021_25, or DATA_PATH_COMBINED for model training.
 """
 
 import json
@@ -19,7 +34,15 @@ from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent.parent
-DATA_PATH = BASE_DIR / "data" / "crop_yield.csv"
+DATA_DIR = BASE_DIR / "data"
+DATA_PATH = DATA_DIR / "crop_yield.csv"
+
+# New datasets
+DATA_PATH_MODEL_READY      = DATA_DIR / "cropzen_model_ready_2000_2020.csv"
+DATA_PATH_DISTRICT         = DATA_DIR / "cropzen_india_district_2000_2020.csv"
+DATA_PATH_OFFICIAL_2021_25 = DATA_DIR / "cropzen_india_official_all_india_2021_2025.csv"
+DATA_PATH_COMBINED         = DATA_DIR / "cropzen_india_combined_2000_2025.csv"
+
 OUTPUTS_DIR = BASE_DIR / "outputs"
 
 # ── Column schema ─────────────────────────────────────────────────────────────
@@ -28,8 +51,9 @@ NUMERIC_FEATURES = ["Crop_Year", "Area", "Annual_Rainfall", "Fertilizer", "Pesti
 ALL_FEATURES = CATEGORICAL_FEATURES + NUMERIC_FEATURES
 TARGET = "Yield"
 
-# Production is excluded because Yield is derived from Production/Area
-# (or closely related in many rows), making Production a leaky predictor.
+# Production is excluded because Yield is derived from or strongly correlated
+# with Production/Area. Production is a post-harvest observed quantity not
+# available at prediction time, and including it would cause data leakage.
 EXCLUDED_FEATURES = ["Production"]
 
 # Reasonable numeric ranges for input validation
@@ -240,3 +264,149 @@ def check_out_of_training_range(input_dict: dict, schema: dict) -> list[str]:
         elif p95 is not None and fval > p95:
             warnings.append(f"{col} ({fval:.2f}) is above the 95th percentile of training data ({p95:.2f}).")
     return warnings
+
+
+# ── New dataset loaders ───────────────────────────────────────────────────────
+
+def load_model_ready_data() -> pd.DataFrame | None:
+    """
+    Load the curated model-ready dataset (2000–2020, state level).
+    Schema is identical to the original crop_yield.csv after whitespace stripping.
+    Returns None (not raises) if the file is absent, so the app degrades gracefully.
+    """
+    if not DATA_PATH_MODEL_READY.exists():
+        logger.warning("Model-ready dataset not found at %s", DATA_PATH_MODEL_READY)
+        return None
+    df = pd.read_csv(DATA_PATH_MODEL_READY, low_memory=False)
+    # Strip whitespace from categorical columns (season values have trailing spaces)
+    for col in CATEGORICAL_FEATURES:
+        if col in df.columns:
+            df[col] = df[col].str.strip()
+    logger.info("Loaded model-ready dataset: %d rows, %d columns", len(df), df.shape[1])
+    return df
+
+
+def load_district_data() -> pd.DataFrame | None:
+    """
+    Load the district-level historical dataset (2000–2020).
+    IMPORTANT: Annual_Rainfall, Fertilizer, and Pesticide are 100% missing.
+    This dataset CANNOT be used for model training with the existing feature schema.
+    Use it for district-level exploratory analysis only.
+    Returns None if the file is absent.
+    """
+    if not DATA_PATH_DISTRICT.exists():
+        logger.warning("District dataset not found at %s", DATA_PATH_DISTRICT)
+        return None
+    # Read with low_memory=False due to large file (123 MB)
+    df = pd.read_csv(DATA_PATH_DISTRICT, low_memory=False)
+    for col in CATEGORICAL_FEATURES:
+        if col in df.columns:
+            df[col] = df[col].str.strip()
+    logger.info("Loaded district dataset: %d rows, %d columns", len(df), df.shape[1])
+    return df
+
+
+def load_official_2021_25_data() -> pd.DataFrame | None:
+    """
+    Load the official all-India 2020-21 to 2024-25 dataset (225 rows).
+    IMPORTANT:
+    - Yield column is 100% missing. Supervised validation is NOT possible.
+    - Area column is 100% missing. Yield cannot be derived from Production/Area.
+    - Geography is All-India only (not state-level).
+    - Production unit varies: 'lakh tonnes' for most crops; 'lakh bales' for cotton.
+    - Records with Crop_Year=2025 refer to agricultural year 2024-25.
+    Use for official production statistics display only.
+    Returns None if the file is absent.
+    """
+    if not DATA_PATH_OFFICIAL_2021_25.exists():
+        logger.warning("Official 2021-25 dataset not found at %s", DATA_PATH_OFFICIAL_2021_25)
+        return None
+    df = pd.read_csv(DATA_PATH_OFFICIAL_2021_25, low_memory=False)
+    logger.info("Loaded official 2021-25 dataset: %d rows, %d columns", len(df), df.shape[1])
+    return df
+
+
+def load_combined_data() -> pd.DataFrame | None:
+    """
+    Load the combined district + all-India dataset (2000–2025, 311,713 rows).
+    IMPORTANT:
+    - Mix of geography_level='district' and geography_level='all_india'.
+    - Annual_Rainfall, Fertilizer, Pesticide are 100% missing.
+    - CANNOT be used for model training.
+    - Always filter by geography_level before analysis to avoid mixing scales.
+    Returns None if the file is absent.
+    """
+    if not DATA_PATH_COMBINED.exists():
+        logger.warning("Combined dataset not found at %s", DATA_PATH_COMBINED)
+        return None
+    df = pd.read_csv(DATA_PATH_COMBINED, low_memory=False)
+    for col in CATEGORICAL_FEATURES:
+        if col in df.columns:
+            df[col] = df[col].str.strip()
+    logger.info("Loaded combined dataset: %d rows, %d columns", len(df), df.shape[1])
+    return df
+
+
+# ── Dataset metadata registry ─────────────────────────────────────────────────
+DATASET_REGISTRY = {
+    "original": {
+        "label":        "Original Historical (1997–2020)",
+        "path":         DATA_PATH,
+        "years":        "1997–2020",
+        "rows":         19_689,
+        "geography":    "State-level",
+        "model_ready":  True,
+        "has_yield":    True,
+        "limitations":  "Random 80/20 split may allow (crop, state) overlap between train and test.",
+    },
+    "model_ready": {
+        "label":        "Model-Ready Curated (2000–2020)",
+        "path":         DATA_PATH_MODEL_READY,
+        "years":        "2000–2020",
+        "rows":         17_983,
+        "geography":    "State-level",
+        "model_ready":  True,
+        "has_yield":    True,
+        "limitations":  "Covers 2000–2020 only; excludes 1997–1999 records present in the original dataset.",
+    },
+    "district": {
+        "label":        "District-Level Historical (2000–2020)",
+        "path":         DATA_PATH_DISTRICT,
+        "years":        "2000–2020",
+        "rows":         311_488,
+        "geography":    "District-level (706 districts, 37 states)",
+        "model_ready":  False,
+        "has_yield":    True,
+        "limitations":  "Annual_Rainfall, Fertilizer, Pesticide are 100% missing — cannot train existing model.",
+    },
+    "official_2021_25": {
+        "label":        "Official All-India 2020-21 to 2024-25",
+        "path":         DATA_PATH_OFFICIAL_2021_25,
+        "years":        "2020-21 to 2024-25",
+        "rows":         225,
+        "geography":    "All-India aggregate",
+        "model_ready":  False,
+        "has_yield":    False,
+        "limitations":  (
+            "Yield is 100% missing. Area is 100% missing. "
+            "Supervised model validation is not possible. "
+            "Production in mixed units (lakh tonnes / lakh bales). "
+            "Cannot be compared directly to state-level predictions."
+        ),
+    },
+    "combined": {
+        "label":        "Combined Dataset (2000–2025)",
+        "path":         DATA_PATH_COMBINED,
+        "years":        "2000–2025",
+        "rows":         311_713,
+        "geography":    "Mixed: district + all-India",
+        "model_ready":  False,
+        "has_yield":    True,  # district rows only
+        "limitations":  (
+            "Mixes district and all-India geographic levels. "
+            "Annual_Rainfall, Fertilizer, Pesticide 100% missing. "
+            "Always filter by geography_level before analysis."
+        ),
+    },
+}
+

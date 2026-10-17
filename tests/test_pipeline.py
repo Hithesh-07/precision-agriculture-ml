@@ -360,3 +360,52 @@ class TestFeatureSchema:
         }
         warnings = check_out_of_training_range(inp, schema)
         assert any("Annual_Rainfall" in w for w in warnings)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. Multi-Dataset Integrity & Scope
+# ─────────────────────────────────────────────────────────────────────────────
+class TestMultiDatasetIntegrity:
+    def test_model_ready_dataset_loads(self):
+        from src.data_processing import load_model_ready_data
+        df = load_model_ready_data()
+        assert df is not None
+        assert len(df) == 17983
+        assert "Yield" in df.columns
+        assert "Annual_Rainfall" in df.columns
+
+    def test_district_dataset_has_no_rainfall_fertilizer(self):
+        """Verify district dataset does not have rainfall or fertilizer and shouldn't train ML model directly."""
+        from src.data_processing import load_district_data
+        df = load_district_data()
+        assert df is not None
+        assert len(df) == 311488
+        assert df["Annual_Rainfall"].isna().all()
+        assert df["Fertilizer"].isna().all()
+
+    def test_official_dataset_missing_yield_and_handled_safely(self):
+        """Official 2021-2025 dataset must have 100% missing yield, prohibiting supervised validation."""
+        from src.data_processing import load_official_2021_25_data
+        df = load_official_2021_25_data()
+        assert df is not None
+        assert len(df) == 225
+        assert df["Yield"].isna().all()
+        assert df["Area"].isna().all()
+        # Verify years correspond to 2020-21 through 2024-25
+        assert df["Crop_Year"].min() == 2021
+        assert df["Crop_Year"].max() == 2025
+
+    def test_combined_dataset_loads_and_has_both_geographies(self):
+        from src.data_processing import load_combined_data
+        df = load_combined_data()
+        assert df is not None
+        assert len(df) == 311713
+        assert set(df["geography_level"].unique()) == {"district", "all_india"}
+
+    def test_missing_dataset_graceful_handling(self, tmp_path, monkeypatch):
+        """App functions must return None rather than raising unhandled exceptions when dataset file is missing."""
+        from src import data_processing
+        monkeypatch.setattr(data_processing, "DATA_PATH_MODEL_READY", tmp_path / "nonexistent.csv")
+        df = data_processing.load_model_ready_data()
+        assert df is None
+

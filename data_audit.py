@@ -1,204 +1,248 @@
 """
 data_audit.py
 =============
-Data audit script for the crop_yield.csv dataset.
-Inspects schema, data quality, target definition, and potential leakage issues.
-Run: .venv\Scripts\python.exe data_audit.py
+Reproducible data-audit script for all CropZen datasets.
+
+Run:
+    .venv\\Scripts\\python.exe data_audit.py
+
+Outputs:
+    reports/data_audit.md  — human-readable audit report
+    outputs/audit_summary.json — machine-readable summary
+
+This script inspects all five datasets without modifying them.
+It does NOT delete, impute, or alter any data.
 """
 
-import os
-import sys
 import json
-import pandas as pd
-import numpy as np
+import sys
 from pathlib import Path
 
-# ── locate dataset ────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).parent
-POSSIBLE_PATHS = [
-    BASE_DIR / "data" / "crop_yield.csv",
-    BASE_DIR / "crop_yield.csv",
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from src.data_processing import (
+    ALL_FEATURES,
+    CATEGORICAL_FEATURES,
+    NUMERIC_FEATURES,
+    TARGET,
+    DATASET_REGISTRY,
+    DATA_PATH,
+    DATA_PATH_MODEL_READY,
+    DATA_PATH_DISTRICT,
+    DATA_PATH_OFFICIAL_2021_25,
+    DATA_PATH_COMBINED,
+)
+
+REPORTS_DIR = Path("reports")
+OUTPUTS_DIR = Path("outputs")
+REPORTS_DIR.mkdir(exist_ok=True)
+OUTPUTS_DIR.mkdir(exist_ok=True)
+
+DATASETS_TO_AUDIT = [
+    ("original",          DATA_PATH),
+    ("model_ready",       DATA_PATH_MODEL_READY),
+    ("district",          DATA_PATH_DISTRICT),
+    ("official_2021_25",  DATA_PATH_OFFICIAL_2021_25),
+    ("combined",          DATA_PATH_COMBINED),
 ]
 
-csv_path = None
-for p in POSSIBLE_PATHS:
-    if p.exists():
-        csv_path = p
-        break
+report_lines = [
+    "# CropZen — Comprehensive Data Audit Report",
+    f"*Script: data_audit.py — run with `.venv\\Scripts\\python.exe data_audit.py`*",
+    "",
+]
 
-if csv_path is None:
-    print("ERROR: crop_yield.csv not found. Checked:")
-    for p in POSSIBLE_PATHS:
-        print(f"  {p}")
-    sys.exit(1)
+audit_summary = {}
 
-print(f"Dataset found: {csv_path}")
-df = pd.read_csv(csv_path)
 
-# ── shape ────────────────────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("SHAPE")
-print("="*60)
-print(f"Rows   : {df.shape[0]:,}")
-print(f"Columns: {df.shape[1]}")
+def fmt_pct(n, total):
+    if total == 0:
+        return "N/A"
+    return f"{n:,} ({n / total * 100:.1f}%)"
 
-# ── columns and dtypes ────────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("COLUMNS AND DTYPES")
-print("="*60)
-for col in df.columns:
-    print(f"  {col:<20} {str(df[col].dtype):<12} nunique={df[col].nunique()}")
 
-# ── missing values ────────────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("MISSING VALUES")
-print("="*60)
-missing = df.isnull().sum()
-has_missing = False
-for col, cnt in missing.items():
-    if cnt > 0:
-        has_missing = True
-        pct = cnt / len(df) * 100
-        print(f"  {col:<20} {cnt:>6} missing  ({pct:.2f}%)")
-if not has_missing:
-    print("  No missing values found.")
+def audit_dataset(key: str, path: Path) -> dict:
+    reg = DATASET_REGISTRY.get(key, {})
+    lines = [
+        f"",
+        f"---",
+        f"",
+        f"## {reg.get('label', key)}",
+        f"",
+        f"**File:** `{path.name}` ({path.stat().st_size / 1_048_576:.2f} MB)" if path.exists() else "**File:** NOT FOUND",
+        f"**Geography:** {reg.get('geography', 'Unknown')}",
+        f"**Year coverage:** {reg.get('years', 'Unknown')}",
+        f"**Model-ready:** {'✅ Yes' if reg.get('model_ready') else '❌ No'}",
+        f"**Has observed Yield:** {'✅ Yes' if reg.get('has_yield') else '❌ No — yield validation impossible'}",
+        f"",
+    ]
 
-# ── duplicates ────────────────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("DUPLICATE ROWS")
-print("="*60)
-dup_count = df.duplicated().sum()
-print(f"  Exact duplicate rows: {dup_count:,}")
+    result = {"key": key, "path": str(path), "file_exists": path.exists()}
 
-# ── categorical exploration ───────────────────────────────────────────────────
-print("\n" + "="*60)
-print("CATEGORICAL COLUMNS")
-print("="*60)
-for col in ["Crop", "Season", "State"]:
-    if col in df.columns:
-        vals = df[col].str.strip().unique()
-        print(f"\n{col}: {len(vals)} unique values")
-        for v in sorted(vals)[:15]:
-            cnt = (df[col].str.strip() == v).sum()
-            print(f"    {v:<35} n={cnt:>5}")
-        if len(vals) > 15:
-            print(f"    ... and {len(vals)-15} more")
+    if not path.exists():
+        lines.append(f"> ⚠️ **File not found.** Skipping audit.")
+        result["error"] = "file_not_found"
+        return result, lines
 
-# ── year range ────────────────────────────────────────────────────────────────
-if "Crop_Year" in df.columns:
-    print("\n" + "="*60)
-    print("CROP_YEAR RANGE")
-    print("="*60)
-    print(f"  Min: {df['Crop_Year'].min()}   Max: {df['Crop_Year'].max()}")
-    print(f"  Unique years: {sorted(df['Crop_Year'].unique().tolist())}")
+    df = pd.read_csv(path, low_memory=False)
 
-# ── numeric descriptive stats ────────────────────────────────────────────────
-numeric_cols = ["Area", "Production", "Annual_Rainfall", "Fertilizer", "Pesticide", "Yield"]
-numeric_cols = [c for c in numeric_cols if c in df.columns]
+    n_rows, n_cols = df.shape
+    n_dups = int(df.duplicated().sum())
+    result.update({"rows": n_rows, "cols": n_cols, "duplicates": n_dups})
 
-print("\n" + "="*60)
-print("NUMERIC DESCRIPTIVE STATISTICS")
-print("="*60)
-print(df[numeric_cols].describe().to_string())
+    lines += [
+        f"### Shape",
+        f"- **Rows:** {n_rows:,}",
+        f"- **Columns:** {n_cols}",
+        f"- **Duplicate rows:** {n_dups:,}",
+        f"",
+    ]
 
-# ── zero / negative values ────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("ZERO AND NEGATIVE VALUES")
-print("="*60)
-for col in numeric_cols:
-    zeros = (df[col] == 0).sum()
-    negs  = (df[col] < 0).sum()
-    if zeros > 0 or negs > 0:
-        print(f"  {col:<20} zeros={zeros:>5}  negatives={negs:>5}")
+    # Column summary
+    lines.append(f"### Column Summary")
+    lines.append(f"")
+    lines.append(f"| Column | Dtype | Nulls | Null % | Unique |")
+    lines.append(f"|--------|-------|-------|--------|--------|")
+    col_summary = {}
+    for col in df.columns:
+        dtype = str(df[col].dtype)
+        n_null = int(df[col].isna().sum())
+        pct_null = n_null / n_rows * 100 if n_rows else 0
+        n_uniq = int(df[col].nunique())
+        lines.append(f"| `{col}` | {dtype} | {n_null:,} | {pct_null:.1f}% | {n_uniq:,} |")
+        col_summary[col] = {"dtype": dtype, "nulls": n_null, "null_pct": round(pct_null, 2), "unique": n_uniq}
+    result["columns"] = col_summary
+    lines.append(f"")
+
+    # Year range
+    year_col = next((c for c in ["Crop_Year", "crop_year"] if c in df.columns), None)
+    if year_col:
+        yvals = pd.to_numeric(df[year_col], errors="coerce").dropna()
+        yr_min, yr_max = int(yvals.min()), int(yvals.max())
+        result["year_min"] = yr_min
+        result["year_max"] = yr_max
+        lines.append(f"### Year Range")
+        lines.append(f"- **`{year_col}`:** {yr_min} – {yr_max} ({yvals.nunique()} unique values)")
+        lines.append(f"")
+
+    # Numeric summary
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if num_cols:
+        desc = df[num_cols].describe().round(3)
+        lines.append(f"### Numeric Summary")
+        lines.append(f"")
+        lines.append(f"```")
+        lines.append(desc.to_string())
+        lines.append(f"```")
+        lines.append(f"")
+
+    # Category value counts
+    cat_cols = [c for c in ["Crop", "Season", "State", "District", "geography_level"] if c in df.columns]
+    if cat_cols:
+        lines.append(f"### Categorical Values")
+        lines.append(f"")
+        for cc in cat_cols:
+            vals = sorted(df[cc].dropna().unique().tolist())
+            sample = vals[:10]
+            lines.append(f"**`{cc}`** ({len(vals)} unique):")
+            lines.append(f"  Sample: `{', '.join(str(v) for v in sample)}`{'...' if len(vals) > 10 else ''}")
+            lines.append(f"")
+
+    # Zero / negative checks
+    lines.append(f"### Zero / Negative Value Checks")
+    lines.append(f"")
+    check_cols = {c: df[c] for c in ["Area", "Production", "Yield"] if c in df.columns and pd.api.types.is_numeric_dtype(df[c])}
+    if check_cols:
+        lines.append(f"| Column | Zeros | Negatives | Nulls |")
+        lines.append(f"|--------|-------|-----------|-------|")
+        for col, series in check_cols.items():
+            zeros = int((series == 0).sum())
+            negs  = int((series < 0).sum())
+            nulls = int(series.isna().sum())
+            lines.append(f"| `{col}` | {zeros:,} | {negs:,} | {nulls:,} |")
+        lines.append(f"")
+
+    # Target availability
+    lines.append(f"### Target Availability (`Yield`)")
+    lines.append(f"")
+    if "Yield" in df.columns:
+        missing_yield = int(df["Yield"].isna().sum())
+        pct_missing = missing_yield / n_rows * 100 if n_rows else 0
+        lines.append(f"- **Missing:** {missing_yield:,} ({pct_missing:.1f}%)")
+        if missing_yield < n_rows:
+            valid = df["Yield"].dropna()
+            lines.append(f"- **Min:** {valid.min():.4f}  **Median:** {valid.median():.4f}  **Max:** {valid.max():.4f}")
+            lines.append(f"- **Zero-yield rows:** {int((valid == 0).sum()):,}")
+        else:
+            lines.append(f"- ⛔ **All Yield values are missing.** Supervised validation is NOT possible.")
+        result["yield_missing"] = missing_yield
     else:
-        print(f"  {col:<20} zeros=    0  negatives=    0  OK")
+        lines.append(f"- ⛔ No `Yield` column found.")
+        result["yield_missing"] = n_rows
+    lines.append(f"")
 
-# ── target leakage check ─────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("TARGET LEAKAGE CHECK  (Yield vs Production/Area)")
-print("="*60)
-if all(c in df.columns for c in ["Production", "Area", "Yield"]):
-    df_c = df.dropna(subset=["Production", "Area", "Yield"])
-    df_c = df_c[df_c["Area"] > 0]
-    derived = df_c["Production"] / df_c["Area"]
-    diff = (derived - df_c["Yield"]).abs()
-    max_diff  = diff.max()
-    mean_diff = diff.mean()
-    exact_pct = (diff < 0.001).sum() / len(df_c) * 100
-    print(f"  Max  |Production/Area - Yield|: {max_diff:.8f}")
-    print(f"  Mean |Production/Area - Yield|: {mean_diff:.8f}")
-    print(f"  Rows where derived == Yield (within 0.001): {exact_pct:.1f}%")
-    if exact_pct > 99:
-        print("\n  CONCLUSION: Yield IS derived from Production / Area.")
-        print("  => 'Production' must NOT be used as a predictor (data leakage).")
-        print("  => 'Area' is a valid input because it is known BEFORE harvest.")
+    # Leakage check
+    if "Production" in df.columns and "Area" in df.columns and "Yield" in df.columns:
+        lines.append(f"### Data Leakage Check")
+        lines.append(f"")
+        sub = df[["Production", "Area", "Yield"]].dropna()
+        if len(sub) > 0 and (sub["Area"] > 0).all():
+            derived = sub["Production"] / sub["Area"]
+            match = (derived - sub["Yield"]).abs() < 0.01
+            pct = match.mean() * 100
+            lines.append(f"- `Yield == Production / Area` (within 0.01 tolerance): **{pct:.1f}%** of non-null rows")
+            if pct > 50:
+                lines.append(f"- ⚠️ **Strong leakage signal:** Production is essentially a proxy for Yield on this dataset. "
+                             f"Including Production as a feature would cause data leakage.")
+            else:
+                lines.append(f"- ⚠️ Partial match — Production likely uses different aggregation or units. "
+                             f"Still excluded as a predictor since it is a post-harvest quantity.")
+            result["leakage_pct"] = round(pct, 2)
+        lines.append(f"")
+
+    # Model-readiness check
+    lines.append(f"### Model Training Compatibility")
+    lines.append(f"")
+    missing_features = [f for f in ALL_FEATURES if f not in df.columns or df[f].isna().all()]
+    if missing_features:
+        lines.append(f"- ❌ **Missing or all-null features:** `{', '.join(missing_features)}`")
+        lines.append(f"- ❌ **Cannot be used for model training** without these features.")
+    elif reg.get("model_ready"):
+        lines.append(f"- ✅ All required model features are present and non-null.")
+        lines.append(f"- ✅ **Compatible with existing training pipeline** (after whitespace stripping).")
     else:
-        print("\n  CONCLUSION: Yield and Production/Area do not match exactly.")
-        print("  => Investigate further before using Production as a predictor.")
+        lines.append(f"- ⚠️ Feature columns present but dataset is not designated for model training.")
+    lines.append(f"")
 
-# ── yield distribution ────────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("YIELD DISTRIBUTION")
-print("="*60)
-if "Yield" in df.columns:
-    y = df["Yield"].dropna()
-    q1, q3 = y.quantile(0.25), y.quantile(0.75)
-    iqr = q3 - q1
-    print(f"  Min        : {y.min():.4f}")
-    print(f"  25th pct   : {q1:.4f}")
-    print(f"  Median     : {y.median():.4f}")
-    print(f"  Mean       : {y.mean():.4f}")
-    print(f"  75th pct   : {q3:.4f}")
-    print(f"  Max        : {y.max():.4f}")
-    print(f"  Std Dev    : {y.std():.4f}")
-    print(f"  Skewness   : {y.skew():.4f}")
-    print(f"  99th pct   : {y.quantile(0.99):.4f}")
-    outlier_high = (y > q3 + 3*iqr).sum()
-    outlier_low  = (y < q1 - 3*iqr).sum()
-    print(f"  Outliers (3xIQR above): {outlier_high}")
-    print(f"  Outliers (3xIQR below): {outlier_low}")
-    print(f"  Zero-yield rows       : {(y == 0).sum()}")
+    # Limitations
+    if reg.get("limitations"):
+        lines.append(f"### Known Limitations")
+        lines.append(f"")
+        lines.append(f"> {reg['limitations']}")
+        lines.append(f"")
 
-# ── correlations ──────────────────────────────────────────────────────────────
-print("\n" + "="*60)
-print("CORRELATIONS WITH YIELD")
-print("="*60)
-safe_cols = [c for c in ["Area", "Annual_Rainfall", "Fertilizer", "Pesticide", "Yield"] if c in df.columns]
-corr = df[safe_cols].corr()["Yield"].drop("Yield")
-for col, val in corr.sort_values(ascending=False).items():
-    print(f"  {col:<20} r = {val:+.4f}")
-print("  (Correlation does not imply causation)")
+    return result, lines
 
-# ── final feature recommendation ─────────────────────────────────────────────
-print("\n" + "="*60)
-print("RECOMMENDED FEATURE SCHEMA (for model training)")
-print("="*60)
-print("  INPUT FEATURES:")
-print("    Categorical : Crop, Season, State")
-print("    Numeric     : Crop_Year, Area, Annual_Rainfall, Fertilizer, Pesticide")
-print("  TARGET:")
-print("    Yield  (tonnes per hectare — derived from Production/Area)")
-print("  EXCLUDED:")
-print("    Production  — leaks the target (Yield = Production / Area)")
-print()
-print("Data audit complete.")
 
-# ── save audit summary ────────────────────────────────────────────────────────
-os.makedirs(BASE_DIR / "outputs", exist_ok=True)
-summary = {
-    "rows": int(df.shape[0]),
-    "columns": int(df.shape[1]),
-    "missing_total": int(df.isnull().sum().sum()),
-    "duplicate_rows": int(df.duplicated().sum()),
-    "unique_crops": int(df["Crop"].nunique()) if "Crop" in df.columns else None,
-    "unique_states": int(df["State"].nunique()) if "State" in df.columns else None,
-    "unique_seasons": int(df["Season"].nunique()) if "Season" in df.columns else None,
-    "year_min": int(df["Crop_Year"].min()) if "Crop_Year" in df.columns else None,
-    "year_max": int(df["Crop_Year"].max()) if "Crop_Year" in df.columns else None,
-    "yield_min": float(df["Yield"].min()) if "Yield" in df.columns else None,
-    "yield_max": float(df["Yield"].max()) if "Yield" in df.columns else None,
-    "yield_mean": float(df["Yield"].mean()) if "Yield" in df.columns else None,
-}
-with open(BASE_DIR / "outputs" / "audit_summary.json", "w") as f:
-    json.dump(summary, f, indent=2)
-print(f"\nAudit summary saved to outputs/audit_summary.json")
+print("Running CropZen data audit...")
+for key, path in DATASETS_TO_AUDIT:
+    print(f"  Auditing: {key} ...")
+    result, lines = audit_dataset(key, path)
+    audit_summary[key] = result
+    report_lines.extend(lines)
+
+# Write report
+report_path = REPORTS_DIR / "data_audit.md"
+with open(report_path, "w", encoding="utf-8") as f:
+    f.write("\n".join(report_lines))
+print(f"Audit report written to: {report_path}")
+
+# Write JSON summary
+summary_path = OUTPUTS_DIR / "audit_summary.json"
+with open(summary_path, "w") as f:
+    json.dump(audit_summary, f, indent=2)
+print(f"Audit summary (JSON) written to: {summary_path}")
+print("Audit complete.")
