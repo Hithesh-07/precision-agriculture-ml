@@ -70,6 +70,12 @@ from src.prediction import (
     validate_batch_columns,
     validate_batch_file,
 )
+from src.multilingual_voice import (
+    build_multilingual_result_card,
+    build_multilingual_spoken_answer,
+    detect_language,
+    parse_multilingual_voice_text,
+)
 from src.translations import LANGUAGE_CODES, LANGUAGES, T
 from src.voice_utils import (
     build_prediction_speech_text,
@@ -468,6 +474,8 @@ if "prediction_history" not in st.session_state:
     st.session_state.prediction_history = []
 if "voice_transcript" not in st.session_state:
     st.session_state.voice_transcript = ""
+if "user_spoken_lang" not in st.session_state:
+    st.session_state.user_spoken_lang = "en"
 
 lang = st.session_state.lang
 
@@ -876,17 +884,47 @@ elif page == "predict":
     # ── Voice input section ───────────────────────────────────────────────────
     with st.expander(f"🎤 {T('predict_mic', lang)} ({T('predict_mic_hint', lang)})", expanded=False):
         lang_code = LANGUAGE_CODES.get(lang, "en-IN")
-        st.components.v1.html(get_voice_input_html(lang_code), height=255, scrolling=False)
+        st.components.v1.html(get_voice_input_html(lang_code), height=270, scrolling=False)
         st.caption("🔒 *Note: Requires microphone permission in your browser (Google Chrome or Microsoft Edge recommended).*")
 
         transcript = st.text_input(
-            "📝 " + T("predict_recognized", lang) + " (Paste transcript here or type notes):",
+            "📝 " + T("predict_recognized", lang) + " (Paste transcript here or type in Telugu, Hindi, or English):",
             value=st.session_state.voice_transcript,
             key="voice_text_input",
             placeholder="Click 'Copy Text' above and paste here...",
         )
         if transcript:
             st.session_state.voice_transcript = transcript
+            parsed_voice = parse_multilingual_voice_text(transcript)
+            det_lang = parsed_voice["detected_lang"]
+            st.session_state.user_spoken_lang = det_lang
+            lang_label = "🇮🇳 తెలుగు (Telugu)" if det_lang == "te" else ("🇮🇳 हिन्दी (Hindi)" if det_lang == "hi" else "🇬🇧 English")
+
+            col_v1, col_v2 = st.columns([3, 1])
+            with col_v1:
+                entities_str = ", ".join(parsed_voice["entities_found"]) if parsed_voice["entities_found"] else "No specific entities recognized yet."
+                st.info(f"🗣️ **Detected Voice Language:** {lang_label}\n\n**Extracted Parameters:** {entities_str}")
+            with col_v2:
+                if st.button("⚡ Auto-Fill Form", use_container_width=True, type="primary"):
+                    crops_list = schema["categories"].get("Crop", [])
+                    states_list = schema["categories"].get("State", [])
+                    seasons_list = schema["categories"].get("Season", [])
+                    if parsed_voice["crop"] and parsed_voice["crop"] in crops_list:
+                        st.session_state["form_crop"] = parsed_voice["crop"]
+                    if parsed_voice["state"] and parsed_voice["state"] in states_list:
+                        st.session_state["form_state"] = parsed_voice["state"]
+                    if parsed_voice["season"] and parsed_voice["season"] in seasons_list:
+                        st.session_state["form_season"] = parsed_voice["season"]
+                    if parsed_voice["year"]:
+                        st.session_state["form_year"] = parsed_voice["year"]
+                    if parsed_voice["area"]:
+                        st.session_state["form_area"] = parsed_voice["area"]
+                    if parsed_voice["rainfall"]:
+                        st.session_state["form_rainfall"] = parsed_voice["rainfall"]
+                    if parsed_voice["fertilizer"]:
+                        st.session_state["form_fertilizer"] = parsed_voice["fertilizer"]
+                    st.success("✅ Form inputs populated from your spoken words!")
+                    st.rerun()
 
     st.markdown("---")
 
@@ -897,23 +935,29 @@ elif page == "predict":
         col1, col2 = st.columns(2)
         with col1:
             crops = schema["categories"].get("Crop", [])
+            default_crop = st.session_state.get("form_crop", crops[0] if crops else "Rice")
+            crop_idx = crops.index(default_crop) if default_crop in crops else 0
             crop_val = st.selectbox(
                 T("predict_crop", lang),
-                options=crops, key="sel_crop",
+                options=crops, index=crop_idx, key="sel_crop",
                 help="Select the crop variety from the 55 supported crops.",
             )
         with col2:
             states = schema["categories"].get("State", [])
+            default_state = st.session_state.get("form_state", states[0] if states else "Punjab")
+            state_idx = states.index(default_state) if default_state in states else 0
             state_val = st.selectbox(
                 T("predict_state", lang),
-                options=states, key="sel_state",
+                options=states, index=state_idx, key="sel_state",
                 help="Select the Indian state where the crop was/will be cultivated.",
             )
 
         seasons = schema["categories"].get("Season", [])
+        default_season = st.session_state.get("form_season", "Kharif" if "Kharif" in seasons else (seasons[0] if seasons else ""))
+        season_idx = seasons.index(default_season) if default_season in seasons else 0
         season_val = st.selectbox(
             T("predict_season", lang),
-            options=seasons, key="sel_season",
+            options=seasons, index=season_idx, key="sel_season",
             help="Agricultural season: Kharif (June–Oct), Rabi (Oct–Mar), Whole Year, Summer, Autumn, or Winter.",
         )
 
@@ -924,14 +968,14 @@ elif page == "predict":
             year_val = st.number_input(
                 T("predict_year", lang),
                 min_value=1990, max_value=2030,
-                value=2019, step=1,
+                value=int(st.session_state.get("form_year", 2019)), step=1,
                 help="Crop year (training data spans 1997–2020; 5th–95th percentile: 1998–2019).",
             )
         with col4:
             area_val = st.number_input(
                 T("predict_area", lang) + " (ha)",
                 min_value=0.001, max_value=1e8,
-                value=5000.0,
+                value=float(st.session_state.get("form_area", 5000.0)),
                 help="Cultivated area in hectares. Typical range: 100 – 500,000 ha.",
                 format="%.2f",
             )
@@ -943,7 +987,7 @@ elif page == "predict":
             rainfall_val = st.number_input(
                 T("predict_rainfall", lang) + " (mm)",
                 min_value=0.0, max_value=10000.0,
-                value=1200.0,
+                value=float(st.session_state.get("form_rainfall", 1200.0)),
                 help="Annual rainfall in mm. Typical range: 200 – 3,000 mm.",
                 format="%.1f",
             )
@@ -951,7 +995,7 @@ elif page == "predict":
             fertilizer_val = st.number_input(
                 T("predict_fertilizer", lang) + " (kg)",
                 min_value=0.0, max_value=1e11,
-                value=500000.0,
+                value=float(st.session_state.get("form_fertilizer", 500000.0)),
                 help="Total fertilizer used in kg. Typical range: 1,000 – 10,000,000 kg.",
                 format="%.0f",
             )
@@ -959,7 +1003,7 @@ elif page == "predict":
             pesticide_val = st.number_input(
                 T("predict_pesticide", lang) + " (kg)",
                 min_value=0.0, max_value=1e8,
-                value=1000.0,
+                value=float(st.session_state.get("form_pesticide", 1000.0)),
                 help="Total pesticide used in kg. Typical range: 10 – 50,000 kg.",
                 format="%.2f",
             )
@@ -1003,6 +1047,31 @@ elif page == "predict":
                 mae_display = f"{mae_val:.2f}" if isinstance(mae_val, (int, float)) else mae_val
                 r2_display  = f"{r2_val:.4f}"  if isinstance(r2_val,  (int, float)) else r2_val
 
+                # ── Determine user's spoken or active language for response ────
+                answer_lang = st.session_state.get("user_spoken_lang", lang)
+                if answer_lang not in ("te", "hi", "en"):
+                    answer_lang = lang
+
+                res_card = build_multilingual_result_card(
+                    crop=crop_val,
+                    predicted_yield=pred_yield,
+                    model_name=model_name,
+                    area=area_val,
+                    lang=answer_lang,
+                )
+
+                # Localized banner in the language the user spoke (Telugu or Hindi)
+                if answer_lang in ("te", "hi"):
+                    st.markdown(f"""
+                    <div style="background:#F2F8F4;border-left:5px solid #1F7A4D;border-radius:10px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                      <div style="font-size:1.05rem;font-weight:700;color:#14532D;margin-bottom:6px;">{res_card['title']}</div>
+                      <div style="font-size:0.95rem;color:#1F2937;margin-bottom:4px;">{res_card['headline']}</div>
+                      <div style="font-size:1.15rem;font-weight:700;color:#1F7A4D;margin-bottom:4px;">{res_card['yield_text']}</div>
+                      <div style="font-size:0.92rem;color:#4B5563;margin-bottom:6px;">{res_card['production_text']}</div>
+                      <div style="font-size:0.8rem;color:#6B7280;">{res_card['note']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 st.markdown(f"""
                 <div class="result-card">
                   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
@@ -1040,13 +1109,18 @@ elif page == "predict":
                     unsafe_allow_html=True,
                 )
 
-                # ── TTS button ─────────────────────────────────────────────────
-                speech_text = build_prediction_speech_text(crop_val, pred_yield, model_name, lang)
-                lang_code = LANGUAGE_CODES.get(lang, "en-IN")
-                st.markdown(f"**{T('predict_listen', lang)}**")
+                # ── TTS button in user's spoken language ────────────────────────
+                speech_text, tts_lang_code = build_multilingual_spoken_answer(
+                    crop=crop_val,
+                    predicted_yield=pred_yield,
+                    model_name=model_name,
+                    area=area_val,
+                    lang=answer_lang,
+                )
+                st.markdown(f"**{res_card['listen_label']}**")
                 st.components.v1.html(
-                    get_tts_html(speech_text, lang_code),
-                    height=100, scrolling=False,
+                    get_tts_html(speech_text, tts_lang_code),
+                    height=105, scrolling=False,
                 )
 
                 # ── Feature importance ──────────────────────────────────────────
