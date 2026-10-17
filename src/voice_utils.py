@@ -15,117 +15,175 @@ Implementation notes:
 """
 
 VOICE_COMPONENT_HTML = """
-<div id="voice-container" style="font-family:sans-serif;padding:8px;">
+<div id="voice-container" style="font-family:Segoe UI, sans-serif;padding:6px;max-width:100%;">
 
   <div id="status-bar" style="
-    background:#f0f8f0;border:1px solid #4CAF50;border-radius:6px;
-    padding:8px 12px;margin-bottom:10px;font-size:13px;color:#2e7d32;">
-    Voice feature ready. Click the microphone to speak.
+    background:#F2F8F4;border:1px solid #1F7A4D;border-radius:8px;
+    padding:10px 14px;margin-bottom:12px;font-size:13px;color:#14532D;font-weight:500;">
+    🎙️ Voice feature ready. Click <strong>Speak</strong> to begin.
   </div>
 
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
     <button id="btn-mic" onclick="startRecognition()" style="
-      background:#4CAF50;color:white;border:none;border-radius:6px;
-      padding:10px 18px;font-size:15px;cursor:pointer;">
+      background:#1F7A4D;color:white;border:none;border-radius:8px;
+      padding:9px 20px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
       🎤 Speak
     </button>
     <button id="btn-stop" onclick="stopRecognition()" style="
-      background:#f44336;color:white;border:none;border-radius:6px;
-      padding:10px 18px;font-size:15px;cursor:pointer;display:none;">
-      ⏹ Stop
+      background:#DC2626;color:white;border:none;border-radius:8px;
+      padding:9px 20px;font-size:14px;font-weight:600;cursor:pointer;display:none;align-items:center;gap:6px;">
+      ⏹ Stop Recording
     </button>
+    <button id="btn-copy" onclick="copyTranscript()" style="
+      background:#FFFFFF;color:#1F7A4D;border:1px solid #1F7A4D;border-radius:8px;
+      padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;display:none;">
+      📋 Copy Text
+    </button>
+    <span id="mic-indicator" style="display:none;font-size:12px;color:#EA580C;font-weight:600;">
+      🔴 Listening...
+    </span>
   </div>
 
+  <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;">Recognised Speech Transcript:</div>
   <div id="transcript-box" style="
-    background:white;border:1px solid #ccc;border-radius:6px;
-    padding:10px;min-height:40px;font-size:14px;margin-bottom:10px;
-    white-space:pre-wrap;">
-    (recognised text will appear here)
+    background:#FFFFFF;border:1.5px solid #D1E7DA;border-radius:8px;
+    padding:12px 14px;min-height:55px;font-size:14px;color:#1F2937;margin-bottom:8px;
+    white-space:pre-wrap;line-height:1.4;">(recognised text will appear here as you speak)</div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#6B7280;flex-wrap:wrap;gap:6px;">
+    <div>Recognition Language: <strong id="lang-display" style="color:#1F7A4D;">{LANG_CODE}</strong></div>
+    <div id="browser-check" style="font-size:11px;"></div>
   </div>
 
-  <div id="lang-info" style="font-size:12px;color:#666;margin-bottom:8px;">
-    Recognition language: <span id="lang-display">en-IN</span>
-  </div>
-
-  <div id="privacy-note" style="font-size:11px;color:#888;margin-top:6px;">
-    ⚠️ Note: Browser speech recognition may send audio to an external server
-    depending on your browser. No audio is stored by this application.
+  <div style="margin-top:10px;padding:8px 12px;background:#F9FAFB;border-radius:6px;font-size:11px;color:#4B5563;">
+    💡 <strong>Tip:</strong> Say agricultural terms like <em>"Wheat in Punjab Kharif season 5000 hectares 1200 rainfall"</em>.
   </div>
 </div>
 
 <script>
 var recognition = null;
 var currentLang = '{LANG_CODE}';
+var fullTranscript = '';
 
-function setStatus(msg, colour) {{
+// Check browser support immediately
+if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+  setStatus('⚠️ Speech recognition API is not supported in this browser. Please use Google Chrome or Microsoft Edge.', '#DC2626');
+  document.getElementById('browser-check').innerHTML = '❌ Browser unsupported (use Chrome/Edge)';
+  document.getElementById('btn-mic').disabled = true;
+  document.getElementById('btn-mic').style.opacity = '0.5';
+} else {
+  document.getElementById('browser-check').innerHTML = '✅ Browser supported';
+}
+
+function setStatus(msg, colour) {
   var bar = document.getElementById('status-bar');
-  bar.innerText = msg;
-  bar.style.borderColor = colour || '#4CAF50';
-  bar.style.background = colour === '#f44336' ? '#fff0f0' :
-                          colour === '#ff9800' ? '#fff8e1' : '#f0f8f0';
-}}
+  bar.innerHTML = msg;
+  bar.style.borderColor = colour || '#1F7A4D';
+  bar.style.color = colour === '#DC2626' ? '#7F1D1D' : colour === '#EA580C' ? '#9A3412' : '#14532D';
+  bar.style.background = colour === '#DC2626' ? '#FEF2F2' : colour === '#EA580C' ? '#FFFBEB' : '#F2F8F4';
+}
 
-function startRecognition() {{
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {{
-    setStatus('❌ Speech recognition is not supported in this browser. Try Chrome or Edge.', '#f44336');
-    return;
-  }}
-
+function startRecognition() {
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = currentLang;
-  recognition.continuous = false;
-  recognition.interimResults = true;
+  if (!SpeechRecognition) {
+    setStatus('❌ Speech recognition not available.', '#DC2626');
+    return;
+  }
 
-  recognition.onstart = function() {{
-    setStatus('🔴 Recording... Speak now.', '#ff9800');
-    document.getElementById('btn-mic').style.display = 'none';
-    document.getElementById('btn-stop').style.display = 'inline-block';
-  }};
+  try {
+    recognition = new SpeechRecognition();
+    recognition.lang = currentLang;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
-  recognition.onresult = function(event) {{
-    var transcript = '';
-    for (var i = event.resultIndex; i < event.results.length; i++) {{
-      transcript += event.results[i][0].transcript;
-    }}
-    document.getElementById('transcript-box').innerText = transcript;
-    if (event.results[event.results.length - 1].isFinal) {{
-      setStatus('✅ Recognition complete. Review text above.', '#4CAF50');
-      // Send transcript to Streamlit via postMessage
-      window.parent.postMessage({{type: 'voice_transcript', text: transcript}}, '*');
-    }}
-  }};
+    recognition.onstart = function() {
+      setStatus('🎙️ <strong>Microphone active.</strong> Speak now into your microphone...', '#EA580C');
+      document.getElementById('btn-mic').style.display = 'none';
+      document.getElementById('btn-stop').style.display = 'inline-flex';
+      document.getElementById('mic-indicator').style.display = 'inline-block';
+      document.getElementById('transcript-box').style.borderColor = '#1F7A4D';
+    };
 
-  recognition.onerror = function(event) {{
-    var msgs = {{
-      'not-allowed': 'Microphone permission denied. Please allow microphone access.',
-      'no-speech': 'No speech detected. Try speaking louder.',
-      'audio-capture': 'No microphone found.',
-      'network': 'Network error during speech recognition.',
-    }};
-    setStatus('❌ ' + (msgs[event.error] || 'Error: ' + event.error), '#f44336');
+    recognition.onresult = function(event) {
+      var interim = '';
+      var final = '';
+      for (var i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          final += event.results[i][0].transcript + ' ';
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      var display = (final + interim).trim();
+      if (display) {
+        fullTranscript = display;
+        document.getElementById('transcript-box').innerText = display;
+        document.getElementById('btn-copy').style.display = 'inline-flex';
+      }
+    };
+
+    recognition.onerror = function(event) {
+      var err = event.error;
+      var msg = 'Error: ' + err;
+      if (err === 'not-allowed' || err === 'permission-denied') {
+        msg = '🔒 Microphone permission was denied. Click the lock/camera icon in your browser address bar to allow microphone access.';
+      } else if (err === 'no-speech') {
+        msg = '🔇 No speech detected. Please speak louder or check microphone volume.';
+      } else if (err === 'audio-capture') {
+        msg = '🎙️ No microphone was detected on your system. Please connect an audio input device.';
+      } else if (err === 'network') {
+        msg = '🌐 Network error connecting to speech recognition service.';
+      }
+      setStatus(msg, '#DC2626');
+      resetButtons();
+    };
+
+    recognition.onend = function() {
+      if (fullTranscript) {
+        setStatus('✅ <strong>Speech captured!</strong> Copy the text above to apply to form.', '#1F7A4D');
+      } else {
+        setStatus('🎙️ Recording finished. Click Speak to try again.', '#1F7A4D');
+      }
+      resetButtons();
+    };
+
+    recognition.start();
+  } catch (e) {
+    setStatus('❌ Could not start speech recognition: ' + e.message, '#DC2626');
     resetButtons();
-  }};
+  }
+}
 
-  recognition.onend = function() {{
-    resetButtons();
-  }};
-
-  recognition.start();
-}}
-
-function stopRecognition() {{
-  if (recognition) recognition.stop();
+function stopRecognition() {
+  if (recognition) {
+    try { recognition.stop(); } catch(e){}
+  }
   resetButtons();
-}}
+}
 
-function resetButtons() {{
-  document.getElementById('btn-mic').style.display = 'inline-block';
+function resetButtons() {
+  document.getElementById('btn-mic').style.display = 'inline-flex';
   document.getElementById('btn-stop').style.display = 'none';
-}}
+  document.getElementById('mic-indicator').style.display = 'none';
+}
 
-// Update language display
-document.getElementById('lang-display').innerText = currentLang;
+function copyTranscript() {
+  var text = fullTranscript || document.getElementById('transcript-box').innerText;
+  if (!text || text.indexOf('(recognised') !== -1) return;
+  navigator.clipboard.writeText(text).then(function() {
+    setStatus('📋 <strong>Copied to clipboard!</strong> Paste it into the Recognized Text input or notes below.', '#1F7A4D');
+  }).catch(function() {
+    // fallback
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    setStatus('📋 <strong>Copied to clipboard!</strong>', '#1F7A4D');
+  });
+}
 </script>
 """
 

@@ -876,16 +876,15 @@ elif page == "predict":
     # ── Voice input section ───────────────────────────────────────────────────
     with st.expander(f"🎤 {T('predict_mic', lang)} ({T('predict_mic_hint', lang)})", expanded=False):
         lang_code = LANGUAGE_CODES.get(lang, "en-IN")
-        st.components.v1.html(get_voice_input_html(lang_code), height=220, scrolling=False)
-        st.caption(T("voice_privacy", lang))
-        st.caption(T("voice_not_supported", lang))
+        st.components.v1.html(get_voice_input_html(lang_code), height=255, scrolling=False)
+        st.caption("🔒 *Note: Requires microphone permission in your browser (Google Chrome or Microsoft Edge recommended).*")
+
         transcript = st.text_input(
-            T("predict_recognized", lang),
+            "📝 " + T("predict_recognized", lang) + " (Paste transcript here or type notes):",
             value=st.session_state.voice_transcript,
             key="voice_text_input",
-            placeholder="Speak or type recognized text here...",
+            placeholder="Click 'Copy Text' above and paste here...",
         )
-        st.caption("After speaking, manually copy the recognized text above, then click Apply.")
         if transcript:
             st.session_state.voice_transcript = transcript
 
