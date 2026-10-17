@@ -79,14 +79,39 @@ st.set_page_config(
 st.markdown("""
 <style>
   /* Typography */
-  html, body, [class*="css"]  { font-family: 'Segoe UI', sans-serif; }
+  html, body, [class*="css"]  { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; }
 
-  /* Sidebar */
-  [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
+  /* Ensure content is not hidden behind Streamlit top bar or header */
+  .block-container {
+    padding-top: 3.5rem !important;
+    padding-bottom: 3rem !important;
+    max-width: 1200px;
   }
-  [data-testid="stSidebar"] * { color: #f1f8e9 !important; }
-  [data-testid="stSidebar"] .stSelectbox label { color: #c8e6c9 !important; }
+
+  /* Sidebar Styling */
+  [data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%) !important;
+  }
+  [data-testid="stSidebar"] h1,
+  [data-testid="stSidebar"] h2,
+  [data-testid="stSidebar"] h3,
+  [data-testid="stSidebar"] p,
+  [data-testid="stSidebar"] span,
+  [data-testid="stSidebar"] label,
+  [data-testid="stSidebar"] .stMarkdown {
+    color: #f1f8e9 !important;
+  }
+  [data-testid="stSidebar"] .stSelectbox label {
+    color: #e8f5e9 !important;
+    font-weight: 600;
+  }
+  /* Keep selectbox dropdown menu readable (dark text on white dropdown background) */
+  [data-testid="stSidebar"] [data-baseweb="select"] * {
+    color: #212121 !important;
+  }
+  [data-testid="stSidebar"] [data-testid="stRadio"] label span {
+    color: #f1f8e9 !important;
+  }
 
   /* Metric cards */
   [data-testid="stMetricValue"] { color: #1b5e20; font-weight: 700; }
@@ -94,8 +119,16 @@ st.markdown("""
   /* Section headers */
   .section-header {
     background: linear-gradient(90deg, #2e7d32, #388e3c);
-    color: white; padding: 12px 20px; border-radius: 8px;
-    margin-bottom: 16px; font-size: 1.3rem; font-weight: 600;
+    color: #ffffff !important;
+    padding: 14px 22px;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+    margin-bottom: 1.2rem;
+    font-size: 1.35rem;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    display: block;
+    clear: both;
   }
 
   /* Result box */
@@ -119,16 +152,15 @@ st.markdown("""
   }
 
   /* Status badge */
-  .badge-ok   { background:#e8f5e9; color:#1b5e20; padding:3px 10px; border-radius:20px; font-size:0.85rem; }
-  .badge-warn { background:#fff8e1; color:#e65100; padding:3px 10px; border-radius:20px; font-size:0.85rem; }
-  .badge-err  { background:#ffebee; color:#b71c1c; padding:3px 10px; border-radius:20px; font-size:0.85rem; }
-
-  /* Remove Streamlit branding padding */
-  .block-container { padding-top: 1rem; }
+  .badge-ok   { background:#e8f5e9; color:#1b5e20; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight: 600; }
+  .badge-warn { background:#fff8e1; color:#e65100; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight: 600; }
+  .badge-err  { background:#ffebee; color:#b71c1c; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight: 600; }
 
   /* Mobile */
   @media (max-width: 768px) {
+    .block-container { padding-top: 4.5rem !important; }
     .result-box .yield-value { font-size: 1.8rem; }
+    .section-header { font-size: 1.15rem; padding: 10px 16px; }
   }
 </style>
 """, unsafe_allow_html=True)
