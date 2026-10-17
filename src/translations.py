@@ -36,6 +36,9 @@ TRANSLATIONS = {
         "confirm":          "Confirm",
         "cancel":           "Cancel",
         "language":         "Language",
+        "theme":            "Theme",
+        "theme_light":      "Light",
+        "theme_dark":       "Dark",
 
         # ── Home ────────────────────────────────────────────────────────────────
         "home_title":           "AI-Powered Crop Yield Prediction",
@@ -211,6 +214,9 @@ TRANSLATIONS = {
         "confirm":          "पुष्टि करें",
         "cancel":           "रद्द करें",
         "language":         "भाषा",
+        "theme":            "थीम",
+        "theme_light":      "लाइट",
+        "theme_dark":       "डार्क",
 
         # ── Home ────────────────────────────────────────────────────────────────
         "home_title":           "AI-संचालित फसल उपज अनुमान",
@@ -386,6 +392,9 @@ TRANSLATIONS = {
         "confirm":          "నిర్ధారించు",
         "cancel":           "రద్దు చేయి",
         "language":         "భాష",
+        "theme":            "థీమ్",
+        "theme_light":      "లైట్",
+        "theme_dark":       "డార్క్",
 
         # ── Home ────────────────────────────────────────────────────────────────
         "home_title":           "AI ఆధారిత పంట దిగుబడి అంచనా",

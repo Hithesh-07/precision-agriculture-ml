@@ -93,57 +93,113 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── session state initialisation ──────────────────────────────────────────────
+if "lang" not in st.session_state:
+    st.session_state.lang = "en"
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+if "prediction_history" not in st.session_state:
+    st.session_state.prediction_history = []
+if "voice_transcript" not in st.session_state:
+    st.session_state.voice_transcript = ""
+if "user_spoken_lang" not in st.session_state:
+    st.session_state.user_spoken_lang = "en"
+
+lang = st.session_state.lang
+theme = st.session_state.theme
+is_dark = (theme == "dark")
+
+# Palette & CSS Tokens for Light vs Dark mode
+if is_dark:
+    bg_app = "#0B1120"
+    bg_sidebar = "#111827"
+    bg_card = "#1E293B"
+    border_color = "#334155"
+    text_main = "#F8FAFC"
+    text_muted = "#94A3B8"
+    accent_green = "#22C55E"
+    topbar_bg = "#111827"
+    banner_grad = "linear-gradient(135deg, #064E3B 0%, #022C22 100%)"
+    banner_border = "#059669"
+    radio_hover = "#1F2937"
+    badge_ok_bg = "#064E3B"
+    badge_ok_text = "#6EE7B7"
+    badge_warn_bg = "#78350F"
+    badge_warn_text = "#FDE68A"
+    disclaimer_bg = "#1E293B"
+    disclaimer_border = "#EAB308"
+    disclaimer_text = "#FDE68A"
+    plotly_template = "plotly_dark"
+    plotly_bg = "#1E293B"
+else:
+    bg_app = "#F7FAF8"
+    bg_sidebar = "#F2F8F4"
+    bg_card = "#FFFFFF"
+    border_color = "#D1E7DA"
+    text_main = "#1F2937"
+    text_muted = "#6B7280"
+    accent_green = "#1F7A4D"
+    topbar_bg = "#FFFFFF"
+    banner_grad = "linear-gradient(135deg, #1F7A4D 0%, #14532D 100%)"
+    banner_border = "#1F7A4D"
+    radio_hover = "#DCEFE6"
+    badge_ok_bg = "#DCFCE7"
+    badge_ok_text = "#14532D"
+    badge_warn_bg = "#FEF9C3"
+    badge_warn_text = "#713F12"
+    disclaimer_bg = "#FFFBEB"
+    disclaimer_border = "#EAB308"
+    disclaimer_text = "#78350F"
+    plotly_template = "plotly_white"
+    plotly_bg = "#FFFFFF"
+
 # ── Design System CSS ─────────────────────────────────────────────────────────
-# Palette:
-#   Primary green   #1F7A4D   Dark green     #14532D
-#   Light green bg  #F2F8F4   Accent yellow  #EAB308
-#   Warning orange  #F59E0B   Error red      #DC2626
-#   Main text       #1F2937   Muted text     #6B7280
-#   Card bg         #FFFFFF   Page bg        #F7FAF8
-st.markdown("""
+st.markdown(f"""
 <style>
 /* ── Base typography ───────────────────────────────────────────────────────── */
-html, body, [class*="css"] {
+html, body, [class*="css"] {{
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-  color: #1F2937;
-}
+  color: {text_main};
+}}
 
 /* ── Page background ───────────────────────────────────────────────────────── */
-.stApp {
-  background-color: #F7FAF8 !important;
-}
+.stApp {{
+  background-color: {bg_app} !important;
+  color: {text_main} !important;
+}}
 
 /* ── Block container ───────────────────────────────────────────────────────── */
-.block-container {
+.block-container {{
   padding-top: 1.5rem !important;
   padding-bottom: 3rem !important;
   max-width: 1200px;
-}
+}}
 
-/* ── Sidebar redesign (light, clean) ───────────────────────────────────────── */
-[data-testid="stSidebar"] {
-  background-color: #F2F8F4 !important;
-  border-right: 1px solid #D1E7DA !important;
-}
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {{
+  background-color: {bg_sidebar} !important;
+  border-right: 1px solid {border_color} !important;
+}}
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3,
 [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] span,
 [data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stMarkdown {
-  color: #1F2937 !important;
-}
-[data-testid="stSidebar"] .stSelectbox label {
-  color: #1F2937 !important;
+[data-testid="stSidebar"] .stMarkdown {{
+  color: {text_main} !important;
+}}
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stRadio label {{
+  color: {text_main} !important;
   font-weight: 600;
   font-size: 0.85rem;
-}
-[data-testid="stSidebar"] [data-baseweb="select"] * {
-  color: #1F2937 !important;
-}
+}}
+[data-testid="stSidebar"] [data-baseweb="select"] * {{
+  color: {text_main} !important;
+}}
 /* Navigation radio — style as pill cards */
-[data-testid="stSidebar"] [data-testid="stRadio"] label {
+[data-testid="stSidebar"] [data-testid="stRadio"] label {{
   padding: 8px 12px !important;
   border-radius: 8px !important;
   margin: 2px 0 !important;
@@ -151,181 +207,183 @@ html, body, [class*="css"] {
   transition: background 0.15s ease;
   cursor: pointer;
   font-size: 0.9rem;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-  background: #DCEFE6 !important;
-}
+}}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {{
+  background: {radio_hover} !important;
+}}
 [data-testid="stSidebar"] [data-testid="stRadio"] [aria-checked="true"] + div label,
-[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
-  background: #FFFFFF !important;
-  border-left: 4px solid #1F7A4D !important;
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {{
+  background: {bg_card} !important;
+  border-left: 4px solid {accent_green} !important;
   font-weight: 600 !important;
-  color: #1F7A4D !important;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] label span {
-  color: #1F2937 !important;
-}
+  color: {accent_green} !important;
+}}
+[data-testid="stSidebar"] [data-testid="stRadio"] label span {{
+  color: {text_main} !important;
+}}
 
 /* ── App header / top bar ───────────────────────────────────────────────────── */
-.cropzen-topbar {
-  background: #FFFFFF;
-  border-bottom: 1px solid #D1E7DA;
+.cropzen-topbar {{
+  background: {topbar_bg};
+  border-bottom: 1px solid {border_color};
   padding: 10px 0 10px 0;
   margin-bottom: 1.5rem;
-}
-.cropzen-logo {
+}}
+.cropzen-logo {{
   font-size: 1.6rem;
   font-weight: 700;
-  color: #1F7A4D;
+  color: {accent_green};
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.cropzen-tagline {
+}}
+.cropzen-tagline {{
   font-size: 0.8rem;
-  color: #6B7280;
+  color: {text_muted};
   font-weight: 400;
   margin-top: 1px;
-}
+}}
 
 /* ── Page title block ───────────────────────────────────────────────────────── */
-.page-title {
+.page-title {{
   font-size: 1.65rem;
   font-weight: 700;
-  color: #1F2937;
+  color: {text_main};
   margin-bottom: 0.25rem;
   line-height: 1.3;
-}
-.page-subtitle {
+}}
+.page-subtitle {{
   font-size: 0.95rem;
-  color: #6B7280;
+  color: {text_muted};
   margin-bottom: 1.25rem;
-}
-.page-breadcrumb {
+}}
+.page-breadcrumb {{
   font-size: 0.78rem;
-  color: #6B7280;
+  color: {text_muted};
   margin-bottom: 0.5rem;
-}
+}}
 
 /* ── Section divider ────────────────────────────────────────────────────────── */
-.section-title {
+.section-title {{
   font-size: 1.15rem;
   font-weight: 600;
-  color: #1F2937;
+  color: {text_main};
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 6px;
-  border-bottom: 2px solid #D1E7DA;
-}
+  border-bottom: 2px solid {border_color};
+}}
 
-/* ── White cards ────────────────────────────────────────────────────────────── */
-.card {
-  background: #FFFFFF;
-  border: 1px solid #E5F0EA;
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.card {{
+  background: {bg_card};
+  border: 1px solid {border_color};
   border-radius: 12px;
   padding: 20px 24px;
   margin-bottom: 16px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-.card-accent {
-  border-left: 4px solid #1F7A4D;
-}
+  color: {text_main};
+}}
+.card-accent {{
+  border-left: 4px solid {accent_green};
+}}
 
 /* ── Hero banner ────────────────────────────────────────────────────────────── */
-.hero-banner {
-  background: linear-gradient(135deg, #1F7A4D 0%, #14532D 100%);
+.hero-banner {{
+  background: {banner_grad};
   border-radius: 16px;
   padding: 36px 40px;
   margin-bottom: 24px;
   color: #FFFFFF;
-}
-.hero-banner h1 {
+  border: 1px solid {banner_border};
+}}
+.hero-banner h1 {{
   font-size: 2rem;
   font-weight: 700;
   color: #FFFFFF !important;
   margin-bottom: 10px;
-}
-.hero-banner p {
+}}
+.hero-banner p {{
   font-size: 1.05rem;
   color: #D1FAE5 !important;
   margin-bottom: 0;
-}
+}}
 
 /* ── Action cards (home) ────────────────────────────────────────────────────── */
-.action-card {
-  background: #FFFFFF;
-  border: 1px solid #E5F0EA;
+.action-card {{
+  background: {bg_card};
+  border: 1px solid {border_color};
   border-radius: 12px;
   padding: 22px 20px;
   text-align: center;
   transition: box-shadow 0.2s ease, transform 0.15s ease;
   cursor: pointer;
   height: 100%;
-}
-.action-card:hover {
+}}
+.action-card:hover {{
   box-shadow: 0 6px 18px rgba(31,122,77,0.15);
   transform: translateY(-2px);
-}
-.action-card .action-icon {
+}}
+.action-card .action-icon {{
   font-size: 2.2rem;
   margin-bottom: 10px;
   display: block;
-}
-.action-card .action-title {
+}}
+.action-card .action-title {{
   font-size: 1rem;
   font-weight: 600;
-  color: #1F2937;
+  color: {text_main};
   margin-bottom: 6px;
-}
-.action-card .action-desc {
+}}
+.action-card .action-desc {{
   font-size: 0.83rem;
-  color: #6B7280;
-}
+  color: {text_muted};
+}}
 
 /* ── Stat cards ─────────────────────────────────────────────────────────────── */
-.stat-card {
-  background: #FFFFFF;
-  border: 1px solid #E5F0EA;
+.stat-card {{
+  background: {bg_card};
+  border: 1px solid {border_color};
   border-radius: 10px;
   padding: 16px 18px;
   text-align: center;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-}
-.stat-card .stat-value {
+}}
+.stat-card .stat-value {{
   font-size: 1.85rem;
   font-weight: 700;
-  color: #1F7A4D;
+  color: {accent_green};
   line-height: 1.2;
-}
-.stat-card .stat-label {
+}}
+.stat-card .stat-label {{
   font-size: 0.78rem;
-  color: #6B7280;
+  color: {text_muted};
   margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
+}}
 
 /* ── Step guide ─────────────────────────────────────────────────────────────── */
-.steps-guide {
-  background: #F2F8F4;
-  border: 1px solid #C9E8D5;
+.steps-guide {{
+  background: {bg_sidebar};
+  border: 1px solid {border_color};
   border-radius: 10px;
   padding: 14px 18px;
   margin-bottom: 18px;
   font-size: 0.9rem;
-  color: #1F2937;
-}
-.steps-guide strong { color: #1F7A4D; }
+  color: {text_main};
+}}
+.steps-guide strong {{ color: {accent_green}; }}
 
 /* ── How it works steps ─────────────────────────────────────────────────────── */
-.how-step {
+.how-step {{
   display: flex;
   align-items: flex-start;
   gap: 14px;
   margin-bottom: 14px;
-}
-.how-step-num {
-  background: #1F7A4D;
+}}
+.how-step-num {{
+  background: {accent_green};
   color: #FFFFFF;
   font-weight: 700;
   font-size: 0.9rem;
@@ -336,148 +394,159 @@ html, body, [class*="css"] {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-.how-step-body strong { color: #1F2937; font-size: 0.95rem; }
-.how-step-body p { color: #6B7280; font-size: 0.83rem; margin: 2px 0 0 0; }
+}}
+.how-step-body strong {{ color: {text_main}; font-size: 0.95rem; }}
+.how-step-body p {{ color: {text_muted}; font-size: 0.83rem; margin: 2px 0 0 0; }}
 
 /* ── Result card ────────────────────────────────────────────────────────────── */
-.result-card {
-  background: #FFFFFF;
-  border: 2px solid #1F7A4D;
+.result-card {{
+  background: {bg_card};
+  border: 2px solid {accent_green};
   border-radius: 14px;
   padding: 28px 32px;
   margin: 18px 0;
   text-align: center;
-  box-shadow: 0 4px 16px rgba(31,122,77,0.12);
-}
-.result-card .yield-number {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}}
+.result-card .yield-number {{
   font-size: 3rem;
   font-weight: 700;
-  color: #1F7A4D;
+  color: {accent_green};
   line-height: 1.1;
-}
-.result-card .yield-unit {
+}}
+.result-card .yield-unit {{
   font-size: 1rem;
-  color: #6B7280;
+  color: {text_muted};
   margin-top: 4px;
-}
-.result-card .result-context {
+}}
+.result-card .result-context {{
   font-size: 0.85rem;
-  color: #6B7280;
+  color: {text_muted};
   margin-top: 6px;
-}
-.result-card .result-meta {
+}}
+.result-card .result-meta {{
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px dashed #C9E8D5;
+  border-top: 1px dashed {border_color};
   display: flex;
   justify-content: center;
   gap: 32px;
   flex-wrap: wrap;
   font-size: 0.83rem;
-  color: #374151;
-}
-.result-card .result-meta span strong { color: #1F2937; }
+  color: {text_muted};
+}}
+.result-card .result-meta span strong {{ color: {text_main}; }}
 
 /* ── Disclaimer / notice boxes ──────────────────────────────────────────────── */
-.disclaimer {
-  background: #FFFBEB;
-  border-left: 4px solid #EAB308;
+.disclaimer {{
+  background: {disclaimer_bg};
+  border-left: 4px solid {disclaimer_border};
   padding: 10px 16px;
   border-radius: 6px;
   font-size: 0.85rem;
-  color: #78350F;
+  color: {disclaimer_text};
   margin-top: 10px;
-}
-.info-notice {
-  background: #EFF6FF;
+}}
+.info-notice {{
+  background: {bg_card};
   border-left: 4px solid #3B82F6;
   padding: 10px 16px;
   border-radius: 6px;
   font-size: 0.85rem;
-  color: #1E3A5F;
+  color: {text_main};
   margin: 8px 0;
-}
-.limitation-alert {
-  background: #FEF2F2;
+}}
+.limitation-alert {{
+  background: {bg_card};
   border: 1px solid #FECACA;
   border-left: 5px solid #DC2626;
   border-radius: 8px;
   padding: 14px 18px;
   font-size: 0.9rem;
-  color: #7F1D1D;
+  color: #DC2626;
   margin-bottom: 18px;
-}
-.security-note {
-  background: #F2F8F4;
-  border: 1px solid #C9E8D5;
-  border-left: 5px solid #1F7A4D;
+}}
+.security-note {{
+  background: {bg_sidebar};
+  border: 1px solid {border_color};
+  border-left: 5px solid {accent_green};
   border-radius: 8px;
   padding: 14px 18px;
   font-size: 0.9rem;
-  color: #14532D;
+  color: {text_main};
   margin-bottom: 18px;
-}
+}}
 
 /* ── Badges ─────────────────────────────────────────────────────────────────── */
-.badge-ok   { background:#DCFCE7; color:#14532D; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }
-.badge-warn { background:#FEF9C3; color:#713F12; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }
-.badge-err  { background:#FEE2E2; color:#7F1D1D; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }
-.badge-info { background:#DBEAFE; color:#1E3A5F; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }
+.badge-ok   {{ background:{badge_ok_bg}; color:{badge_ok_text}; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }}
+.badge-warn {{ background:{badge_warn_bg}; color:{badge_warn_text}; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }}
+.badge-err  {{ background:#FEE2E2; color:#7F1D1D; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }}
+.badge-info {{ background:#DBEAFE; color:#1E3A5F; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:600; }}
 
-/* ── Metrics (override Streamlit default green) ─────────────────────────────── */
-[data-testid="stMetricValue"] { color: #1F7A4D !important; font-weight: 700 !important; }
-[data-testid="stMetricLabel"] { color: #6B7280 !important; font-size: 0.8rem !important; }
+/* ── Metrics ───────────────────────────────────────────────────────────────── */
+[data-testid="stMetricValue"] {{ color: {accent_green} !important; font-weight: 700 !important; }}
+[data-testid="stMetricLabel"] {{ color: {text_muted} !important; font-size: 0.8rem !important; }}
 
 /* ── Buttons ─────────────────────────────────────────────────────────────────── */
-.stButton > button[kind="primary"] {
-  background-color: #1F7A4D !important;
-  border-color: #1F7A4D !important;
+.stButton > button[kind="primary"] {{
+  background-color: {accent_green} !important;
+  border-color: {accent_green} !important;
   color: #FFFFFF !important;
   font-weight: 600;
   border-radius: 8px;
   padding: 0.5rem 1.5rem;
-}
-.stButton > button[kind="primary"]:hover {
-  background-color: #14532D !important;
-  border-color: #14532D !important;
-}
-.stButton > button[kind="secondary"] {
-  border-color: #D1E7DA !important;
+}}
+.stButton > button[kind="secondary"] {{
+  border-color: {border_color} !important;
   border-radius: 8px;
-}
+}}
 
-/* ── Tabs ────────────────────────────────────────────────────────────────────── */
-[data-testid="stTabs"] [data-baseweb="tab"] {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-[data-testid="stTabs"] [aria-selected="true"] {
-  color: #1F7A4D !important;
-  border-bottom-color: #1F7A4D !important;
-}
+/* ── Dark Mode Input & Component Overrides ──────────────────────────────────── */
+{f'''
+.stApp input, .stApp textarea,
+.stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"] {{
+  background-color: {bg_card} !important;
+  color: {text_main} !important;
+  border-color: {border_color} !important;
+}}
+.stApp [data-baseweb="select"] > div {{
+  background-color: {bg_card} !important;
+  color: {text_main} !important;
+  border-color: {border_color} !important;
+}}
+.stApp [data-baseweb="popover"], .stApp [data-baseweb="menu"] {{
+  background-color: {bg_card} !important;
+  color: {text_main} !important;
+}}
+.stApp [data-baseweb="menu"] li {{
+  background-color: {bg_card} !important;
+  color: {text_main} !important;
+}}
+.stApp [data-baseweb="menu"] li:hover {{
+  background-color: {radio_hover} !important;
+}}
+.stApp div[data-testid="stExpander"] {{
+  background-color: {bg_card} !important;
+  border: 1px solid {border_color} !important;
+}}
+.stApp div[data-testid="stExpander"] summary {{
+  color: {text_main} !important;
+}}
+.stApp .stAlert {{
+  background-color: {bg_card} !important;
+  color: {text_main} !important;
+}}
+''' if is_dark else ''}
 
 /* ── Mobile ──────────────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .block-container { padding-top: 3rem !important; }
-  .result-card .yield-number { font-size: 2.2rem; }
-  .hero-banner { padding: 22px 20px; }
-  .hero-banner h1 { font-size: 1.5rem; }
-}
+@media (max-width: 768px) {{
+  .block-container {{ padding-top: 3rem !important; }}
+  .result-card .yield-number {{ font-size: 2.2rem; }}
+  .hero-banner {{ padding: 22px 20px; }}
+  .hero-banner h1 {{ font-size: 1.5rem; }}
+}}
 </style>
 """, unsafe_allow_html=True)
-
-# ── session state initialisation ──────────────────────────────────────────────
-if "lang" not in st.session_state:
-    st.session_state.lang = "en"
-if "prediction_history" not in st.session_state:
-    st.session_state.prediction_history = []
-if "voice_transcript" not in st.session_state:
-    st.session_state.voice_transcript = ""
-if "user_spoken_lang" not in st.session_state:
-    st.session_state.user_spoken_lang = "en"
-
-lang = st.session_state.lang
 
 
 # ── cached data loaders ───────────────────────────────────────────────────────
@@ -589,6 +658,19 @@ with st.sidebar:
     if lang_choice != st.session_state.lang:
         st.session_state.lang = lang_choice
         lang = lang_choice
+    st.markdown('<hr style="border:none;border-top:1px solid #D1E7DA;margin:10px 0;" />', unsafe_allow_html=True)
+
+    # Theme selector (Light / Dark mode)
+    theme_choice = st.radio(
+        "🎨 " + T("theme", lang),
+        options=["light", "dark"],
+        format_func=lambda t: "☀️ " + T("theme_light", lang) if t == "light" else "🌙 " + T("theme_dark", lang),
+        index=0 if st.session_state.theme == "light" else 1,
+        horizontal=True,
+        key="theme_selector",
+    )
+    if theme_choice != st.session_state.theme:
+        st.session_state.theme = theme_choice
         st.rerun()
 
     st.markdown('<hr style="border:none;border-top:1px solid #D1E7DA;margin:12px 0;" />', unsafe_allow_html=True)
@@ -803,12 +885,12 @@ if page == "home":
                 crop_counts, x="Count", y="Crop", orientation="h",
                 title="Top 10 Crops by Number of Records",
                 color="Count", color_continuous_scale=["#C9E8D5", "#1F7A4D"],
-                template="plotly_white",
+                template=plotly_template,
             )
             fig.update_layout(showlegend=False, coloraxis_showscale=False,
                               margin=dict(l=0, r=0, t=40, b=0),
-                              font=dict(color="#1F2937"),
-                              plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
+                              font=dict(color=text_main),
+                              plot_bgcolor=plotly_bg, paper_bgcolor=plotly_bg)
             st.plotly_chart(fig, use_container_width=True)
 
         with col_b:
@@ -818,11 +900,11 @@ if page == "home":
                 season_counts, names="Season", values="Count",
                 title="Distribution of Records by Season",
                 color_discrete_sequence=["#1F7A4D", "#2D9D63", "#4DB87E", "#80CEA0", "#B3E2C7", "#E0F4EC"],
-                template="plotly_white",
+                template=plotly_template,
             )
             fig2.update_layout(margin=dict(l=0, r=0, t=40, b=0),
-                               font=dict(color="#1F2937"),
-                               paper_bgcolor="#FFFFFF")
+                               font=dict(color=text_main),
+                               paper_bgcolor=plotly_bg)
             st.plotly_chart(fig2, use_container_width=True)
     else:
         st.error("Dataset not found. Check data/crop_yield.csv.")
@@ -884,7 +966,7 @@ elif page == "predict":
     # ── Voice input section ───────────────────────────────────────────────────
     with st.expander(f"🎤 {T('predict_mic', lang)} ({T('predict_mic_hint', lang)})", expanded=False):
         lang_code = LANGUAGE_CODES.get(lang, "en-IN")
-        st.components.v1.html(get_voice_input_html(lang_code), height=270, scrolling=False)
+        st.components.v1.html(get_voice_input_html(lang_code, is_dark=is_dark), height=270, scrolling=False)
         st.caption("🔒 *Note: Requires microphone permission in your browser (Google Chrome or Microsoft Edge recommended).*")
 
         transcript = st.text_input(
@@ -910,19 +992,21 @@ elif page == "predict":
                     states_list = schema["categories"].get("State", [])
                     seasons_list = schema["categories"].get("Season", [])
                     if parsed_voice["crop"] and parsed_voice["crop"] in crops_list:
-                        st.session_state["form_crop"] = parsed_voice["crop"]
+                        st.session_state["sel_crop"] = parsed_voice["crop"]
                     if parsed_voice["state"] and parsed_voice["state"] in states_list:
-                        st.session_state["form_state"] = parsed_voice["state"]
+                        st.session_state["sel_state"] = parsed_voice["state"]
                     if parsed_voice["season"] and parsed_voice["season"] in seasons_list:
-                        st.session_state["form_season"] = parsed_voice["season"]
+                        st.session_state["sel_season"] = parsed_voice["season"]
                     if parsed_voice["year"]:
-                        st.session_state["form_year"] = parsed_voice["year"]
+                        st.session_state["sel_year"] = int(parsed_voice["year"])
                     if parsed_voice["area"]:
-                        st.session_state["form_area"] = parsed_voice["area"]
+                        st.session_state["sel_area"] = float(parsed_voice["area"])
                     if parsed_voice["rainfall"]:
-                        st.session_state["form_rainfall"] = parsed_voice["rainfall"]
+                        st.session_state["sel_rainfall"] = float(parsed_voice["rainfall"])
                     if parsed_voice["fertilizer"]:
-                        st.session_state["form_fertilizer"] = parsed_voice["fertilizer"]
+                        st.session_state["sel_fertilizer"] = float(parsed_voice["fertilizer"])
+                    if parsed_voice["pesticide"]:
+                        st.session_state["sel_pesticide"] = float(parsed_voice["pesticide"])
                     st.success("✅ Form inputs populated from your spoken words!")
                     st.rerun()
 
@@ -935,29 +1019,29 @@ elif page == "predict":
         col1, col2 = st.columns(2)
         with col1:
             crops = schema["categories"].get("Crop", [])
-            default_crop = st.session_state.get("form_crop", crops[0] if crops else "Rice")
-            crop_idx = crops.index(default_crop) if default_crop in crops else 0
+            if "sel_crop" not in st.session_state or st.session_state["sel_crop"] not in crops:
+                st.session_state["sel_crop"] = "Rice" if "Rice" in crops else (crops[0] if crops else "")
             crop_val = st.selectbox(
                 T("predict_crop", lang),
-                options=crops, index=crop_idx, key="sel_crop",
+                options=crops, key="sel_crop",
                 help="Select the crop variety from the 55 supported crops.",
             )
         with col2:
             states = schema["categories"].get("State", [])
-            default_state = st.session_state.get("form_state", states[0] if states else "Punjab")
-            state_idx = states.index(default_state) if default_state in states else 0
+            if "sel_state" not in st.session_state or st.session_state["sel_state"] not in states:
+                st.session_state["sel_state"] = "Andhra Pradesh" if "Andhra Pradesh" in states else (states[0] if states else "")
             state_val = st.selectbox(
                 T("predict_state", lang),
-                options=states, index=state_idx, key="sel_state",
+                options=states, key="sel_state",
                 help="Select the Indian state where the crop was/will be cultivated.",
             )
 
         seasons = schema["categories"].get("Season", [])
-        default_season = st.session_state.get("form_season", "Kharif" if "Kharif" in seasons else (seasons[0] if seasons else ""))
-        season_idx = seasons.index(default_season) if default_season in seasons else 0
+        if "sel_season" not in st.session_state or st.session_state["sel_season"] not in seasons:
+            st.session_state["sel_season"] = "Kharif" if "Kharif" in seasons else (seasons[0] if seasons else "")
         season_val = st.selectbox(
             T("predict_season", lang),
-            options=seasons, index=season_idx, key="sel_season",
+            options=seasons, key="sel_season",
             help="Agricultural season: Kharif (June–Oct), Rabi (Oct–Mar), Whole Year, Summer, Autumn, or Winter.",
         )
 
@@ -965,17 +1049,21 @@ elif page == "predict":
         st.markdown('<div class="section-title">Step 2 — Time & Land</div>', unsafe_allow_html=True)
         col3, col4 = st.columns(2)
         with col3:
+            if "sel_year" not in st.session_state:
+                st.session_state["sel_year"] = 2019
             year_val = st.number_input(
                 T("predict_year", lang),
                 min_value=1990, max_value=2030,
-                value=int(st.session_state.get("form_year", 2019)), step=1,
+                step=1, key="sel_year",
                 help="Crop year (training data spans 1997–2020; 5th–95th percentile: 1998–2019).",
             )
         with col4:
+            if "sel_area" not in st.session_state:
+                st.session_state["sel_area"] = 5000.0
             area_val = st.number_input(
                 T("predict_area", lang) + " (ha)",
                 min_value=0.001, max_value=1e8,
-                value=float(st.session_state.get("form_area", 5000.0)),
+                key="sel_area",
                 help="Cultivated area in hectares. Typical range: 100 – 500,000 ha.",
                 format="%.2f",
             )
@@ -984,26 +1072,32 @@ elif page == "predict":
         st.markdown('<div class="section-title">Step 3 — Environment & Agricultural Inputs</div>', unsafe_allow_html=True)
         col5, col6, col7 = st.columns(3)
         with col5:
+            if "sel_rainfall" not in st.session_state:
+                st.session_state["sel_rainfall"] = 1200.0
             rainfall_val = st.number_input(
                 T("predict_rainfall", lang) + " (mm)",
                 min_value=0.0, max_value=10000.0,
-                value=float(st.session_state.get("form_rainfall", 1200.0)),
+                key="sel_rainfall",
                 help="Annual rainfall in mm. Typical range: 200 – 3,000 mm.",
                 format="%.1f",
             )
         with col6:
+            if "sel_fertilizer" not in st.session_state:
+                st.session_state["sel_fertilizer"] = 500000.0
             fertilizer_val = st.number_input(
                 T("predict_fertilizer", lang) + " (kg)",
                 min_value=0.0, max_value=1e11,
-                value=float(st.session_state.get("form_fertilizer", 500000.0)),
+                key="sel_fertilizer",
                 help="Total fertilizer used in kg. Typical range: 1,000 – 10,000,000 kg.",
                 format="%.0f",
             )
         with col7:
+            if "sel_pesticide" not in st.session_state:
+                st.session_state["sel_pesticide"] = 1000.0
             pesticide_val = st.number_input(
                 T("predict_pesticide", lang) + " (kg)",
                 min_value=0.0, max_value=1e8,
-                value=float(st.session_state.get("form_pesticide", 1000.0)),
+                key="sel_pesticide",
                 help="Total pesticide used in kg. Typical range: 10 – 50,000 kg.",
                 format="%.2f",
             )
@@ -1119,7 +1213,7 @@ elif page == "predict":
                 )
                 st.markdown(f"**{res_card['listen_label']}**")
                 st.components.v1.html(
-                    get_tts_html(speech_text, tts_lang_code),
+                    get_tts_html(speech_text, tts_lang_code, is_dark=is_dark),
                     height=105, scrolling=False,
                 )
 
@@ -1135,13 +1229,13 @@ elif page == "predict":
                             imp_df, x="Importance", y="Feature", orientation="h",
                             color="Importance",
                             color_continuous_scale=["#C9E8D5", "#1F7A4D"],
-                            template="plotly_white",
+                            template=plotly_template,
                             title=f"Feature Importance — {model_name}",
                         )
                         fig.update_layout(showlegend=False, coloraxis_showscale=False,
                                           margin=dict(l=0, r=0, t=40, b=0),
-                                          font=dict(color="#1F2937"),
-                                          plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
+                                          font=dict(color=text_main),
+                                          plot_bgcolor=plotly_bg, paper_bgcolor=plotly_bg)
                         st.plotly_chart(fig, use_container_width=True)
                         st.caption(T("perf_feat_note", lang))
 
@@ -1288,9 +1382,9 @@ elif page == "batch":
                         title="Distribution of Predicted Yields (t/ha)",
                         labels={"Predicted_Yield": "Predicted Yield (t/ha)"},
                         color_discrete_sequence=["#1F7A4D"],
-                        template="plotly_white", nbins=30,
+                        template=plotly_template, nbins=30,
                     )
-                    fig.update_layout(font=dict(color="#1F2937"), plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
+                    fig.update_layout(font=dict(color=text_main), plot_bgcolor=plotly_bg, paper_bgcolor=plotly_bg)
                     st.plotly_chart(fig, use_container_width=True)
 
                 with col_chart2:
@@ -1300,9 +1394,9 @@ elif page == "batch":
                             crop_avg, x="Crop", y="Predicted_Yield",
                             title="Average Predicted Yield by Crop (t/ha)",
                             labels={"Predicted_Yield": "Avg Yield (t/ha)"},
-                            color="Crop", template="plotly_white",
+                            color="Crop", template=plotly_template,
                         )
-                        fig_crop.update_layout(font=dict(color="#1F2937"), plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
+                        fig_crop.update_layout(font=dict(color=text_main), plot_bgcolor=plotly_bg, paper_bgcolor=plotly_bg)
                         st.plotly_chart(fig_crop, use_container_width=True)
                     else:
                         pred_stats = result_df.loc[ok_mask, "Predicted_Yield"].describe().round(4)
@@ -1336,7 +1430,7 @@ elif page == "explorer":
         breadcrumb="CropZen › Dataset Explorer",
     )
 
-    _chart_layout = dict(font=dict(color="#1F2937"), plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
+    _chart_layout = dict(font=dict(color=text_main), plot_bgcolor=plotly_bg, paper_bgcolor=plotly_bg)
 
     ex_tab1, ex_tab2, ex_tab3, ex_tab4 = st.tabs([
         "🌾 Model-Ready State Data (2000–20)",
@@ -1373,7 +1467,7 @@ elif page == "explorer":
                     title="Yield Distribution (t/ha)",
                     labels={"Yield": "Yield (t/ha)"},
                     color_discrete_sequence=["#1F7A4D"],
-                    template="plotly_white",
+                    template=plotly_template,
                 )
                 fig_mr1.update_layout(**_chart_layout)
                 st.plotly_chart(fig_mr1, use_container_width=True)
@@ -1385,7 +1479,7 @@ elif page == "explorer":
                     title="Top 12 Crops by Median Yield (t/ha)",
                     labels={"Yield": "Median Yield (t/ha)"},
                     color="Yield", color_continuous_scale=["#C9E8D5", "#1F7A4D"],
-                    template="plotly_white",
+                    template=plotly_template,
                 )
                 fig_mr2.update_layout(coloraxis_showscale=False, **_chart_layout)
                 st.plotly_chart(fig_mr2, use_container_width=True)
@@ -1420,7 +1514,7 @@ elif page == "explorer":
                     top_dist_prod, x="Production", y="State", orientation="h",
                     title="Top 10 States by Total Production (District Sum)",
                     color="Production", color_continuous_scale=["#FDE68A", "#D97706"],
-                    template="plotly_white",
+                    template=plotly_template,
                 )
                 fig_d1.update_layout(coloraxis_showscale=False, **_chart_layout)
                 st.plotly_chart(fig_d1, use_container_width=True)
@@ -1431,7 +1525,7 @@ elif page == "explorer":
                 fig_d2 = px.pie(
                     top_dist_crops, names="Crop", values="Count",
                     title="Top 10 Most Frequently Reported Crops Across Districts",
-                    template="plotly_white",
+                    template=plotly_template,
                 )
                 fig_d2.update_layout(**_chart_layout)
                 st.plotly_chart(fig_d2, use_container_width=True)
@@ -1469,7 +1563,7 @@ elif page == "explorer":
                     title="Top 10 Food Crops — Mean National Production (Lakh Tonnes)",
                     labels={"Production": "Production (Lakh Tonnes)"},
                     color="Production", color_continuous_scale=["#E9D5FF", "#7E22CE"],
-                    template="plotly_white",
+                    template=plotly_template,
                 )
                 fig_o1.update_layout(coloraxis_showscale=False, **_chart_layout)
                 st.plotly_chart(fig_o1, use_container_width=True)
@@ -1483,7 +1577,7 @@ elif page == "explorer":
                     title="Production Trajectory (2020-21 to 2024-25)",
                     labels={"crop_year_label": "Agricultural Year", "Production": "Production (Lakh Tonnes)"},
                     markers=True,
-                    template="plotly_white",
+                    template=plotly_template,
                 )
                 fig_o2.update_layout(**_chart_layout)
                 st.plotly_chart(fig_o2, use_container_width=True)
@@ -1538,7 +1632,7 @@ elif page == "performance":
 
     metrics_all = eval_meta.get("metrics", {})
     best_model  = eval_meta.get("best_model", "")
-    _chart_layout = dict(font=dict(color="#1F2937"), plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
+    _chart_layout = dict(font=dict(color=text_main), plot_bgcolor=plotly_bg, paper_bgcolor=plotly_bg)
 
     # ── Best model summary ────────────────────────────────────────────────────
     trained_dataset = eval_meta.get("dataset_label", "CropZen Dataset")
@@ -1581,7 +1675,7 @@ elif page == "performance":
             metrics_df, x="Model", y="MAE (t/ha)",
             title=T("perf_mae", lang),
             color="Model", color_discrete_sequence=_bar_colors,
-            template="plotly_white",
+            template=plotly_template,
         )
         fig.update_layout(showlegend=False, xaxis_tickangle=-20, **_chart_layout)
         st.plotly_chart(fig, use_container_width=True)
@@ -1592,7 +1686,7 @@ elif page == "performance":
             metrics_df, x="Model", y="RMSE (t/ha)",
             title=T("perf_rmse", lang),
             color="Model", color_discrete_sequence=_bar_colors,
-            template="plotly_white",
+            template=plotly_template,
         )
         fig2.update_layout(showlegend=False, xaxis_tickangle=-20, **_chart_layout)
         st.plotly_chart(fig2, use_container_width=True)
@@ -1603,7 +1697,7 @@ elif page == "performance":
             metrics_df, x="Model", y="R²",
             title=T("perf_r2", lang),
             color="Model", color_discrete_sequence=_bar_colors,
-            template="plotly_white",
+            template=plotly_template,
         )
         fig3.update_layout(showlegend=False, xaxis_tickangle=-20, **_chart_layout)
         st.plotly_chart(fig3, use_container_width=True)
@@ -1629,7 +1723,7 @@ elif page == "performance":
                 labels={"Actual": "Actual Yield (t/ha)", "Predicted": "Predicted Yield (t/ha)"},
                 opacity=0.4,
                 color_discrete_sequence=["#1F7A4D"],
-                template="plotly_white",
+                template=plotly_template,
             )
             # Perfect-prediction diagonal
             fig4.add_trace(go.Scatter(
@@ -1649,7 +1743,7 @@ elif page == "performance":
                 labels={"Predicted": "Predicted Yield (t/ha)", "Residual": "Residual (Predicted − Actual)"},
                 opacity=0.4,
                 color_discrete_sequence=["#3B82F6"],
-                template="plotly_white",
+                template=plotly_template,
             )
             fig5.add_hline(y=0, line_dash="dash", line_color="#DC2626", line_width=1.5)
             fig5.update_layout(**_chart_layout)
@@ -1670,7 +1764,7 @@ elif page == "performance":
                 title=f"Feature Importance — {best_model}",
                 color="Importance",
                 color_continuous_scale=["#C9E8D5", "#1F7A4D"],
-                template="plotly_white",
+                template=plotly_template,
             )
             fig6.update_layout(coloraxis_showscale=False, **_chart_layout)
             st.plotly_chart(fig6, use_container_width=True)
@@ -1851,11 +1945,11 @@ elif page == "history":
                 title="Predicted Yields Over This Session",
                 color="crop",
                 labels={"predicted_yield": "Yield (t/ha)", "timestamp": "Time"},
-                template="plotly_white",
+                template=plotly_template,
             )
             fig.update_layout(xaxis_tickangle=-30,
-                              font=dict(color="#1F2937"),
-                              plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF")
+                              font=dict(color=text_main),
+                              plot_bgcolor=plotly_bg, paper_bgcolor=plotly_bg)
             st.plotly_chart(fig, use_container_width=True)
 
         col_dl, col_clear = st.columns([3, 1])

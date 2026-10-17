@@ -283,25 +283,47 @@ function stopSpeaking() {
 """
 
 
-def get_voice_input_html(lang_code: str = "en-IN") -> str:
-    """Return the voice input HTML component with preselected language option."""
+def get_voice_input_html(lang_code: str = "en-IN", is_dark: bool = False) -> str:
+    """Return the voice input HTML component with preselected language option and dark mode support."""
     code_lower = lang_code.lower()
     te_sel = "selected" if "te" in code_lower else ""
     hi_sel = "selected" if "hi" in code_lower else ""
     en_sel = "selected" if not (te_sel or hi_sel) else ""
 
-    return (
+    html = (
         VOICE_COMPONENT_HTML.replace("{LANG_CODE}", lang_code)
         .replace("{TE_SELECTED}", te_sel)
         .replace("{HI_SELECTED}", hi_sel)
         .replace("{EN_SELECTED}", en_sel)
     )
+    if is_dark:
+        html = (
+            html.replace("#F2F8F4", "#064E3B")
+            .replace("#14532D", "#6EE7B7")
+            .replace("#1F7A4D", "#22C55E")
+            .replace("#374151", "#F8FAFC")
+            .replace("#1F2937", "#F8FAFC")
+            .replace("#6B7280", "#94A3B8")
+            .replace("#4B5563", "#CBD5E1")
+            .replace("#FFFFFF", "#1E293B")
+            .replace("#D1E7DA", "#334155")
+            .replace("#F9FAFB", "#0F172A")
+        )
+    return html
 
 
-def get_tts_html(text: str, lang_code: str = "en-IN") -> str:
+def get_tts_html(text: str, lang_code: str = "en-IN", is_dark: bool = False) -> str:
     """Return the TTS HTML component for the given text and language."""
     safe_text = text.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
-    return TTS_COMPONENT_HTML.replace("{TEXT}", safe_text).replace("{LANG_CODE}", lang_code)
+    html = TTS_COMPONENT_HTML.replace("{TEXT}", safe_text).replace("{LANG_CODE}", lang_code)
+    if is_dark:
+        html = (
+            html.replace("#1F7A4D", "#22C55E")
+            .replace("color:white", "color:#0F172A")
+            .replace("#6B7280", "#94A3B8")
+            .replace("#374151", "#F8FAFC")
+        )
+    return html
 
 
 def build_prediction_speech_text(

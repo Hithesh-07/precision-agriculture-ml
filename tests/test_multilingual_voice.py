@@ -54,6 +54,15 @@ class TestMultilingualParsing:
         assert parsed["area"] == 5000.0
         assert parsed["rainfall"] == 1200.0
 
+    def test_telugu_voice_parsing_with_varsham(self):
+        text = "వరి ఆంధ్రప్రదేశ్ 5000 వర్షం 1200"
+        parsed = parse_multilingual_voice_text(text)
+        assert parsed["detected_lang"] == "te"
+        assert parsed["crop"] == "Rice"
+        assert parsed["state"] == "Andhra Pradesh"
+        assert parsed["area"] == 5000.0
+        assert parsed["rainfall"] == 1200.0
+
     def test_hindi_voice_parsing(self):
         text = "गेहूं पंजाब रबी 4000 हेक्टेयर 800 वर्षा"
         parsed = parse_multilingual_voice_text(text)

@@ -103,14 +103,20 @@ flowchart TD
   - **English Example:** *"Cotton Maharashtra Kharif 2500 hectares 950 rainfall"*  
     &rarr; Extracts: `Crop: Cotton(lint)`, `State: Maharashtra`, `Season: Kharif`, `Area: 2,500 ha`, `Rainfall: 950 mm`
 - Automatically normalizes Telugu numerals (`౦-౯`) and Devanagari numerals (`०-९`) to standard digits (`0-9`).
+- Robust regional keyword detection handles conversational phrases (e.g. `వర్షం 1200` or `వర్షపాతం 1200` automatically mapped to annual rainfall).
 
-### 4. One-Click Form Auto-Fill
-- An **"⚡ Auto-Fill Form"** button transfers all recognized parameters directly into the Streamlit input form.
+### 4. Direct Form Auto-Fill
+- An **"⚡ Auto-Fill Form"** button binds the parsed entities directly to Streamlit's widget session states (`sel_crop`, `sel_state`, `sel_season`, `sel_year`, `sel_area`, `sel_rainfall`, `sel_fertilizer`, `sel_pesticide`).
+- Guarantees immediate UI synchronization without requiring manual dropdown selection or losing values during reruns.
 
 ### 5. Localized Answer in the Spoken Language
 - CropZen remembers the language the user spoke and delivers the prediction result in that exact language:
   - **Visual Result Card:** Shows a highlighted localized card with crop name, predicted yield per hectare, and estimated total production in Telugu or Hindi.
   - **Audio Readout (Text-to-Speech):** Clicking **🔊 Listen / వినండి / सुनें** reads out the prediction fluently in Telugu (`te-IN`), Hindi (`hi-IN`), or English (`en-IN`) using browser speech synthesis.
+
+### 6. Dynamic Dark Mode & Light Mode
+- Includes a full **Dark Mode** toggle in the sidebar with instant state persistence.
+- Complete high-contrast palette with deep slate cards (`#1E293B`), emerald green accents (`#22C55E`), clean readable typography, dark-adapted Plotly analytics charts, and seamless theme support inside embedded voice & speech components.
 
 ---
 
@@ -219,7 +225,7 @@ precision-agriculture-ml/
 └── tests/
     ├── __init__.py
     ├── test_pipeline.py           # Core pipeline, model, and dataset integrity tests (47 tests)
-    └── test_multilingual_voice.py # Multilingual parsing, Telugu/Hindi TTS & translation tests (16 tests)
+    └── test_multilingual_voice.py # Multilingual parsing, Telugu/Hindi TTS & translation tests (17 tests)
 ```
 
 ---

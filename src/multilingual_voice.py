@@ -390,12 +390,12 @@ def parse_multilingual_voice_text(text: str, default_lang: Optional[str] = None)
 
     # Rainfall: first check keyword-then-number, then number-then-unit
     rain_match = re.search(
-        r"(?:వర్షపాతం|rainfall|rain|वर्षा|बारिश)\s*[:=]?\s*(\d+(?:\.\d+)?)",
+        r"(?:వర్షపాతం|వర్షం|వార్షిక వర్షపాతం|rainfall|rain|वर्षा|बारिश)\s*[:=]?\s*(\d+(?:\.\d+)?)",
         clean_text, flags=re.IGNORECASE
     )
     if not rain_match:
         rain_match = re.search(
-            r"(\d+(?:\.\d+)?)\s*(?:మి\.మీ|మిమీ|mm)",
+            r"(\d+(?:\.\d+)?)\s*(?:మి\.మీ|మిమీ|mm|వర్షపాతం|వర్షం)",
             clean_text, flags=re.IGNORECASE
         )
     if rain_match:
