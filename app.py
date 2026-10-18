@@ -766,7 +766,7 @@ if page == "home":
 
     # ── 4 Dataset stat cards ───────────────────────────────────────────────────
     st.markdown('<div class="section-title">Dataset at a Glance</div>', unsafe_allow_html=True)
-    df = load_dataset()
+    df = load_model_ready_cached() or load_dataset()
     if df is not None:
         s1, s2, s3, s4 = st.columns(4)
         with s1:
@@ -950,8 +950,6 @@ elif page == "predict":
     if schema is None:
         st.error("Feature schema not found. Run train_model.py first.")
         st.stop()
-
-    df = load_dataset()
 
     # Step guide
     st.markdown("""
