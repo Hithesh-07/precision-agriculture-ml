@@ -491,47 +491,47 @@ html, body, [class*="css"] {{
 .stButton > button,
 div[data-testid="stDownloadButton"] > button,
 button[data-testid="baseButton-secondary"],
-button[data-testid="baseButton-primary"] {
+button[data-testid="baseButton-primary"] {{
   border-radius: 8px !important;
   font-weight: 600 !important;
   transition: all 0.2s ease !important;
-}
+}}
 
 /* Primary Buttons */
 .stButton > button[kind="primary"],
 div[data-testid="stDownloadButton"] > button[kind="primary"],
-button[data-testid="baseButton-primary"] {
+button[data-testid="baseButton-primary"] {{
   background-color: {accent_green} !important;
   border: 1px solid {accent_green} !important;
   color: #FFFFFF !important;
   padding: 0.5rem 1.25rem !important;
-}
+}}
 .stButton > button[kind="primary"]:hover,
 div[data-testid="stDownloadButton"] > button[kind="primary"]:hover,
-button[data-testid="baseButton-primary"]:hover {
+button[data-testid="baseButton-primary"]:hover {{
   background-color: #15803D !important;
   border-color: #15803D !important;
   color: #FFFFFF !important;
-}
+}}
 
 /* Secondary / Standard Buttons (e.g. Go to Predict, Clear History, etc.) */
 .stButton > button:not([kind="primary"]),
 div[data-testid="stDownloadButton"] > button:not([kind="primary"]),
 button[data-testid="baseButton-secondary"],
-button:not([kind="primary"]) {
+button:not([kind="primary"]) {{
   background-color: {bg_card} !important;
   border: 1px solid {border_color} !important;
   color: {text_main} !important;
   padding: 0.5rem 1.25rem !important;
-}
+}}
 .stButton > button:not([kind="primary"]):hover,
 div[data-testid="stDownloadButton"] > button:not([kind="primary"]):hover,
 button[data-testid="baseButton-secondary"]:hover,
-button:not([kind="primary"]):hover {
+button:not([kind="primary"]):hover {{
   background-color: {radio_hover} !important;
   border-color: {accent_green} !important;
   color: {accent_green} !important;
-}
+}}
 
 /* ── Dark Mode Input & Component Overrides ──────────────────────────────────── */
 {f'''
