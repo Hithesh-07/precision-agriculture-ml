@@ -487,22 +487,66 @@ html, body, [class*="css"] {{
 [data-testid="stMetricValue"] {{ color: {accent_green} !important; font-weight: 700 !important; }}
 [data-testid="stMetricLabel"] {{ color: {text_muted} !important; font-size: 0.8rem !important; }}
 
-/* ── Buttons ─────────────────────────────────────────────────────────────────── */
-.stButton > button[kind="primary"] {{
+/* ── Buttons & Download Buttons ─────────────────────────────────────────────── */
+.stButton > button,
+div[data-testid="stDownloadButton"] > button,
+button[data-testid="baseButton-secondary"],
+button[data-testid="baseButton-primary"] {
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Primary Buttons */
+.stButton > button[kind="primary"],
+div[data-testid="stDownloadButton"] > button[kind="primary"],
+button[data-testid="baseButton-primary"] {
   background-color: {accent_green} !important;
-  border-color: {accent_green} !important;
+  border: 1px solid {accent_green} !important;
   color: #FFFFFF !important;
-  font-weight: 600;
-  border-radius: 8px;
-  padding: 0.5rem 1.5rem;
-}}
-.stButton > button[kind="secondary"] {{
-  border-color: {border_color} !important;
-  border-radius: 8px;
-}}
+  padding: 0.5rem 1.25rem !important;
+}
+.stButton > button[kind="primary"]:hover,
+div[data-testid="stDownloadButton"] > button[kind="primary"]:hover,
+button[data-testid="baseButton-primary"]:hover {
+  background-color: #15803D !important;
+  border-color: #15803D !important;
+  color: #FFFFFF !important;
+}
+
+/* Secondary / Standard Buttons (e.g. Go to Predict, Clear History, etc.) */
+.stButton > button:not([kind="primary"]),
+div[data-testid="stDownloadButton"] > button:not([kind="primary"]),
+button[data-testid="baseButton-secondary"],
+button:not([kind="primary"]) {
+  background-color: {bg_card} !important;
+  border: 1px solid {border_color} !important;
+  color: {text_main} !important;
+  padding: 0.5rem 1.25rem !important;
+}
+.stButton > button:not([kind="primary"]):hover,
+div[data-testid="stDownloadButton"] > button:not([kind="primary"]):hover,
+button[data-testid="baseButton-secondary"]:hover,
+button:not([kind="primary"]):hover {
+  background-color: {radio_hover} !important;
+  border-color: {accent_green} !important;
+  color: {accent_green} !important;
+}
 
 /* ── Dark Mode Input & Component Overrides ──────────────────────────────────── */
 {f'''
+.stApp button {{
+  color: {text_main} !important;
+}}
+.stApp button[kind="primary"], .stApp button[data-testid="baseButton-primary"] {{
+  color: #FFFFFF !important;
+  background-color: {accent_green} !important;
+}}
+.stApp button[kind="secondary"], .stApp button:not([kind="primary"]) {{
+  color: {text_main} !important;
+  background-color: {bg_card} !important;
+  border: 1px solid {border_color} !important;
+}}
 .stApp input, .stApp textarea,
 .stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"] {{
   background-color: {bg_card} !important;
@@ -535,6 +579,24 @@ html, body, [class*="css"] {{
 .stApp .stAlert {{
   background-color: {bg_card} !important;
   color: {text_main} !important;
+}}
+/* Universal dark mode text fallbacks for elements with inline dark gray colors */
+.stApp div[style*="color:#1F2937"],
+.stApp div[style*="color:#374151"],
+.stApp div[style*="color:#4B5563"],
+.stApp p[style*="color:#374151"],
+.stApp span[style*="color:#374151"],
+.stApp ul[style*="color:#374151"],
+.stApp li[style*="color:#374151"] {{
+  color: {text_main} !important;
+}}
+.stApp div[style*="color:#6B7280"],
+.stApp span[style*="color:#6B7280"],
+.stApp p[style*="color:#6B7280"] {{
+  color: {text_muted} !important;
+}}
+.stApp [data-testid="stDataFrame"] {{
+  background-color: {bg_card} !important;
 }}
 ''' if is_dark else ''}
 
@@ -766,7 +828,9 @@ if page == "home":
 
     # ── 4 Dataset stat cards ───────────────────────────────────────────────────
     st.markdown('<div class="section-title">Dataset at a Glance</div>', unsafe_allow_html=True)
-    df = load_model_ready_cached() or load_dataset()
+    df = load_model_ready_cached()
+    if df is None:
+        df = load_dataset()
     if df is not None:
         s1, s2, s3, s4 = st.columns(4)
         with s1:
@@ -806,43 +870,43 @@ if page == "home":
 
         # ── Multi-Dataset Registry on Home ─────────────────────────────────────
         st.markdown('<div class="section-title">Verified Data Assets & Usage Scope</div>', unsafe_allow_html=True)
-        st.markdown("""
-        <div style="font-size:0.88rem;color:#4B5563;margin-bottom:12px;">
+        st.markdown(f"""
+        <div style="font-size:0.88rem;color:{text_muted};margin-bottom:12px;">
           CropZen maintains four dedicated agricultural data assets, cleanly separated between <strong>machine-learning training</strong> and <strong>exploratory / official reporting</strong>.
         </div>
         """, unsafe_allow_html=True)
 
         d1, d2, d3, d4 = st.columns(4)
         with d1:
-            st.markdown("""
-            <div class="card" style="padding:14px;border-top:3px solid #1F7A4D;">
-              <div style="font-size:0.75rem;font-weight:700;color:#1F7A4D;">MODEL TRAINING</div>
-              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">Model-Ready (2000–20)</div>
-              <div style="font-size:0.78rem;color:#6B7280;">17,983 records · State level<br>Complete features (Area, Rainfall, Fertilizer, Pesticide) · Evaluated on held-out test split.</div>
+            st.markdown(f"""
+            <div class="card" style="padding:14px;border-top:3px solid {accent_green};">
+              <div style="font-size:0.75rem;font-weight:700;color:{accent_green};">MODEL TRAINING</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;color:{text_main};">Model-Ready (2000–20)</div>
+              <div style="font-size:0.78rem;color:{text_muted};">17,983 records · State level<br>Complete features (Area, Rainfall, Fertilizer, Pesticide) · Evaluated on held-out test split.</div>
             </div>
             """, unsafe_allow_html=True)
         with d2:
-            st.markdown("""
+            st.markdown(f"""
             <div class="card" style="padding:14px;border-top:3px solid #0284C7;">
               <div style="font-size:0.75rem;font-weight:700;color:#0284C7;">ORIGINAL BASELINE</div>
-              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">Historical (1997–20)</div>
-              <div style="font-size:0.78rem;color:#6B7280;">19,689 records · State level<br>30 states, 55 crops. Historical baseline benchmark for multi-model comparisons.</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;color:{text_main};">Historical (1997–20)</div>
+              <div style="font-size:0.78rem;color:{text_muted};">19,689 records · State level<br>30 states, 55 crops. Historical baseline benchmark for multi-model comparisons.</div>
             </div>
             """, unsafe_allow_html=True)
         with d3:
-            st.markdown("""
+            st.markdown(f"""
             <div class="card" style="padding:14px;border-top:3px solid #D97706;">
               <div style="font-size:0.75rem;font-weight:700;color:#D97706;">DISTRICT EXPLORATION</div>
-              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">District Level (2000–20)</div>
-              <div style="font-size:0.78rem;color:#6B7280;">311,488 records · 706 districts<br>Granular local production. Missing rainfall/inputs — used for geospatial EDA, not model training.</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;color:{text_main};">District Level (2000–20)</div>
+              <div style="font-size:0.78rem;color:{text_muted};">311,488 records · 706 districts<br>Granular local production. Missing rainfall/inputs — used for geospatial EDA, not model training.</div>
             </div>
             """, unsafe_allow_html=True)
         with d4:
-            st.markdown("""
+            st.markdown(f"""
             <div class="card" style="padding:14px;border-top:3px solid #9333EA;">
               <div style="font-size:0.75rem;font-weight:700;color:#9333EA;">RECENT OFFICIAL</div>
-              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;">All-India (2020–25)</div>
-              <div style="font-size:0.78rem;color:#6B7280;">225 records · 2020-21 to 2024-25<br>Official production aggregates. Observed Yield missing — supervised validation prohibited.</div>
+              <div style="font-weight:700;font-size:0.95rem;margin:4px 0;color:{text_main};">All-India (2020–25)</div>
+              <div style="font-size:0.78rem;color:{text_muted};">225 records · 2020-21 to 2024-25<br>Official production aggregates. Observed Yield missing — supervised validation prohibited.</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -858,12 +922,12 @@ if page == "home":
             rmse= metrics.get("RMSE", 0)
             st.markdown(f"""
             <div class="card card-accent" style="margin-top:8px;">
-              <div style="font-size:0.85rem;color:#6B7280;margin-bottom:6px;">Active Production Model &bull; {dataset_name}</div>
-              <div style="font-size:1.1rem;font-weight:700;color:#1F7A4D;margin-bottom:8px;">⭐ {best}</div>
+              <div style="font-size:0.85rem;color:{text_muted};margin-bottom:6px;">Active Production Model &bull; {dataset_name}</div>
+              <div style="font-size:1.1rem;font-weight:700;color:{accent_green};margin-bottom:8px;">⭐ {best}</div>
               <div style="display:flex;gap:32px;flex-wrap:wrap;">
-                <div><div style="font-size:1.4rem;font-weight:700;color:#1F7A4D;">{r2:.4f}</div><div style="font-size:0.75rem;color:#6B7280;">R² (Held-Out Test)</div></div>
-                <div><div style="font-size:1.4rem;font-weight:700;color:#1F2937;">{mae:.2f}</div><div style="font-size:0.75rem;color:#6B7280;">MAE (t/ha)</div></div>
-                <div><div style="font-size:1.4rem;font-weight:700;color:#1F2937;">{rmse:.2f}</div><div style="font-size:0.75rem;color:#6B7280;">RMSE (t/ha)</div></div>
+                <div><div style="font-size:1.4rem;font-weight:700;color:{accent_green};">{r2:.4f}</div><div style="font-size:0.75rem;color:{text_muted};">R² (Held-Out Test)</div></div>
+                <div><div style="font-size:1.4rem;font-weight:700;color:{text_main};">{mae:.2f}</div><div style="font-size:0.75rem;color:{text_muted};">MAE (t/ha)</div></div>
+                <div><div style="font-size:1.4rem;font-weight:700;color:{text_main};">{rmse:.2f}</div><div style="font-size:0.75rem;color:{text_muted};">RMSE (t/ha)</div></div>
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -922,9 +986,9 @@ if page == "home":
         with col:
             st.markdown(f"""
             <div class="card" style="text-align:center;padding:18px;">
-              <div style="background:#1F7A4D;color:#fff;font-weight:700;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px auto;font-size:1rem;">{num}</div>
-              <div style="font-weight:600;color:#1F2937;font-size:0.9rem;margin-bottom:6px;">{title}</div>
-              <div style="color:#6B7280;font-size:0.78rem;">{desc}</div>
+              <div style="background:{accent_green};color:#fff;font-weight:700;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px auto;font-size:1rem;">{num}</div>
+              <div style="font-weight:600;color:{text_main};font-size:0.9rem;margin-bottom:6px;">{title}</div>
+              <div style="color:{text_muted};font-size:0.78rem;">{desc}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1154,23 +1218,26 @@ elif page == "predict":
 
                 # Localized banner in the language the user spoke (Telugu or Hindi)
                 if answer_lang in ("te", "hi"):
+                    spoken_bg = "#064E3B" if is_dark else "#F2F8F4"
+                    spoken_border = "#22C55E" if is_dark else "#1F7A4D"
+                    spoken_title_color = "#6EE7B7" if is_dark else "#14532D"
                     st.markdown(f"""
-                    <div style="background:#F2F8F4;border-left:5px solid #1F7A4D;border-radius:10px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                      <div style="font-size:1.05rem;font-weight:700;color:#14532D;margin-bottom:6px;">{res_card['title']}</div>
-                      <div style="font-size:0.95rem;color:#1F2937;margin-bottom:4px;">{res_card['headline']}</div>
-                      <div style="font-size:1.15rem;font-weight:700;color:#1F7A4D;margin-bottom:4px;">{res_card['yield_text']}</div>
-                      <div style="font-size:0.92rem;color:#4B5563;margin-bottom:6px;">{res_card['production_text']}</div>
-                      <div style="font-size:0.8rem;color:#6B7280;">{res_card['note']}</div>
+                    <div style="background:{spoken_bg};border-left:5px solid {spoken_border};border-radius:10px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                      <div style="font-size:1.05rem;font-weight:700;color:{spoken_title_color};margin-bottom:6px;">{res_card['title']}</div>
+                      <div style="font-size:0.95rem;color:{text_main};margin-bottom:4px;">{res_card['headline']}</div>
+                      <div style="font-size:1.15rem;font-weight:700;color:{accent_green};margin-bottom:4px;">{res_card['yield_text']}</div>
+                      <div style="font-size:0.92rem;color:{text_main};margin-bottom:6px;">{res_card['production_text']}</div>
+                      <div style="font-size:0.8rem;color:{text_muted};">{res_card['note']}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                 st.markdown(f"""
                 <div class="result-card">
                   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-                    <span style="font-size:0.88rem;color:#6B7280;">Historical-Data-Based Yield Estimate</span>
+                    <span style="font-size:0.88rem;color:{text_muted};">Historical-Data-Based Yield Estimate</span>
                     {dist_badge}
                   </div>
-                  <div style="font-size:0.95rem;color:#374151;margin-bottom:10px;">
+                  <div style="font-size:0.95rem;color:{text_main};margin-bottom:10px;">
                     <strong>{crop_val}</strong> &bull; {season_val} &bull; {state_val} &bull; Year {year_val}
                   </div>
                   <div class="yield-number">{pred_yield:.2f}</div>
@@ -1638,9 +1705,9 @@ elif page == "performance":
     split_method = eval_meta.get("split_method", "Random 80/20")
     st.markdown(f"""
     <div class="card card-accent">
-      <div style="font-size:0.8rem;color:#6B7280;margin-bottom:4px;">Best Performing Model &bull; Evaluated on Held-Out Test Set</div>
-      <div style="font-size:1.4rem;font-weight:700;color:#1F7A4D;">⭐ {best_model}</div>
-      <div style="font-size:0.85rem;color:#374151;margin-top:4px;">
+      <div style="font-size:0.8rem;color:{text_muted};margin-bottom:4px;">Best Performing Model &bull; Evaluated on Held-Out Test Set</div>
+      <div style="font-size:1.4rem;font-weight:700;color:{accent_green};">⭐ {best_model}</div>
+      <div style="font-size:0.85rem;color:{text_main};margin-top:4px;">
         <strong>Training Dataset:</strong> {trained_dataset} (<code>{trained_file}</code>)<br>
         <strong>Split Strategy:</strong> {split_method} &nbsp;|&nbsp;
         <strong>Train Size:</strong> {eval_meta.get('train_size', 0):,} rows &nbsp;|&nbsp;
@@ -1775,10 +1842,10 @@ elif page == "performance":
                 unsafe_allow_html=True)
     col_note1, col_note2 = st.columns(2)
     with col_note1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="card">
-          <strong style="color:#1F7A4D;">Understanding MAE vs RMSE Disparity</strong>
-          <ul style="margin-top:8px;font-size:0.85rem;color:#374151;">
+          <strong style="color:{accent_green};">Understanding MAE vs RMSE Disparity</strong>
+          <ul style="margin-top:8px;font-size:0.85rem;color:{text_main};">
             <li><strong>MAE ≈ 15.47 t/ha:</strong> Average absolute deviation. Typical crop errors are relatively compact.</li>
             <li><strong>RMSE ≈ 297 t/ha:</strong> RMSE squares errors before averaging — it is heavily weighted by extreme-yield crops like <em>Coconut</em> (raw count units up to 21,105). This inflates RMSE without representing typical error.</li>
             <li><strong>R² = 0.8898:</strong> The Decision Tree explains ~89% of variance in held-out records. <em>R² is not classification accuracy.</em></li>
@@ -1788,8 +1855,8 @@ elif page == "performance":
     with col_note2:
         st.markdown(f"""
         <div class="card">
-          <strong style="color:#1F7A4D;">Train / Test Split Design</strong>
-          <ul style="margin-top:8px;font-size:0.85rem;color:#374151;">
+          <strong style="color:{accent_green};">Train / Test Split Design</strong>
+          <ul style="margin-top:8px;font-size:0.85rem;color:{text_main};">
             <li><strong>Strategy:</strong> {eval_meta.get('split_method', 'Random 80/20, seed=42')}</li>
             <li><strong>Test set:</strong> {eval_meta.get('test_size', 0):,} records ({eval_meta.get('test_size_fraction', 0.2)*100:.0f}%)</li>
             <li><strong>Limitation:</strong> {eval_meta.get('split_limitation', 'Random split does not guarantee chronological generalization.')}</li>
@@ -1828,9 +1895,9 @@ elif page == "training":
         m = eval_meta.get("metrics", {}).get(best, {})
         st.markdown(f"""
         <div class="card card-accent">
-          <div style="font-size:0.8rem;color:#6B7280;margin-bottom:6px;">{T('train_last_run', lang)}: {trained_at}</div>
-          <div style="font-size:1.2rem;font-weight:700;color:#1F7A4D;">✅ {T('train_success', lang)}</div>
-          <div style="font-size:1rem;color:#374151;margin-top:4px;">Best Model: <strong>{best}</strong></div>
+          <div style="font-size:0.8rem;color:{text_muted};margin-bottom:6px;">{T('train_last_run', lang)}: {trained_at}</div>
+          <div style="font-size:1.2rem;font-weight:700;color:{accent_green};">✅ {T('train_success', lang)}</div>
+          <div style="font-size:1rem;color:{text_main};margin-top:4px;">Best Model: <strong>{best}</strong></div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2092,10 +2159,10 @@ elif page == "about":
 
         col_lr, col_dt, col_rf = st.columns(3)
         with col_lr:
-            st.markdown("""
+            st.markdown(f"""
             <div class="card">
-              <strong style="color:#1F7A4D;">Linear Regression</strong>
-              <p style="font-size:0.85rem;color:#374151;margin-top:8px;">
+              <strong style="color:{accent_green};">Linear Regression</strong>
+              <p style="font-size:0.85rem;color:{text_main};margin-top:8px;">
                 Fits a linear relationship between input features and yield.
                 Simple, fast, and interpretable. Struggles with non-linear patterns.
                 Acts as a baseline for comparison.
@@ -2103,10 +2170,10 @@ elif page == "about":
             </div>
             """, unsafe_allow_html=True)
         with col_dt:
-            st.markdown("""
+            st.markdown(f"""
             <div class="card">
-              <strong style="color:#1F7A4D;">Decision Tree Regressor</strong>
-              <p style="font-size:0.85rem;color:#374151;margin-top:8px;">
+              <strong style="color:{accent_green};">Decision Tree Regressor</strong>
+              <p style="font-size:0.85rem;color:{text_main};margin-top:8px;">
                 Learns recursive splits on feature values. Captures non-linear patterns.
                 Prone to overfitting without depth limits.
                 Provides native feature importance scores.
@@ -2114,10 +2181,10 @@ elif page == "about":
             </div>
             """, unsafe_allow_html=True)
         with col_rf:
-            st.markdown("""
+            st.markdown(f"""
             <div class="card">
-              <strong style="color:#1F7A4D;">Random Forest Regressor</strong>
-              <p style="font-size:0.85rem;color:#374151;margin-top:8px;">
+              <strong style="color:{accent_green};">Random Forest Regressor</strong>
+              <p style="font-size:0.85rem;color:{text_main};margin-top:8px;">
                 Ensemble of 100 decision trees. More robust to overfitting.
                 Provides averaged feature importance. Slower to train and predict.
               </p>
