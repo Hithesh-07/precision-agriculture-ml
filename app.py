@@ -857,14 +857,14 @@ if page == "home":
             </div>
             """, unsafe_allow_html=True)
         with s4:
-            year_range = (
-                f"{int(df['Crop_Year'].min())}–{int(df['Crop_Year'].max())}"
-                if "Crop_Year" in df.columns else "—"
-            )
+            df_off = load_official_cached()
+            max_yr = 2025 if df_off is not None else (int(df['Crop_Year'].max()) if "Crop_Year" in df.columns else 2020)
+            min_yr = int(df['Crop_Year'].min()) if "Crop_Year" in df.columns else 2000
+            year_range = f"{min_yr}–{max_yr}"
             st.markdown(f"""
             <div class="stat-card">
               <div class="stat-value" style="font-size:1.3rem;">{year_range}</div>
-              <div class="stat-label">{T('home_years', lang)}</div>
+              <div class="stat-label">{T('home_years', lang)} (incl. 2024–25)</div>
             </div>
             """, unsafe_allow_html=True)
 
