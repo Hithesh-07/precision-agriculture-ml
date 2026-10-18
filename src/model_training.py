@@ -19,12 +19,14 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
+from lightgbm import LGBMRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
 
 from src.data_processing import build_preprocessor
 
@@ -52,6 +54,28 @@ MODEL_CONFIGS = {
         min_samples_leaf=5,
         n_jobs=-1,
     ),
+    "Gradient Boosting": GradientBoostingRegressor(
+        n_estimators=150,
+        learning_rate=0.08,
+        max_depth=6,
+        random_state=RANDOM_SEED,
+    ),
+    "LightGBM": LGBMRegressor(
+        n_estimators=250,
+        learning_rate=0.05,
+        num_leaves=255,
+        min_child_samples=5,
+        random_state=RANDOM_SEED,
+        verbose=-1,
+        n_jobs=-1,
+    ),
+    "XGBoost": XGBRegressor(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=14,
+        random_state=RANDOM_SEED,
+        n_jobs=-1,
+    ),
 }
 
 MODEL_DESCRIPTIONS = {
@@ -60,12 +84,24 @@ MODEL_DESCRIPTIONS = {
         "but struggles with non-linear relationships common in agricultural data."
     ),
     "Decision Tree": (
-        "Learns a tree of decision rules. Can capture non-linear patterns but "
-        "may overfit without depth limits. Single tree, easy to visualise."
+        "Learns a tree of decision rules. Captures non-linear patterns. "
+        "Single tree, easy to visualise and fast to evaluate."
     ),
     "Random Forest": (
-        "Ensemble of many decision trees. Generally more robust than a single "
-        "tree. Provides native feature importance. Slower to train."
+        "Ensemble of 100 decision trees. Robust to variance. "
+        "Provides native feature importance. Slower to train."
+    ),
+    "Gradient Boosting": (
+        "Builds trees sequentially to correct the residual errors of preceding trees. "
+        "Offers high accuracy with controlled tree depths."
+    ),
+    "LightGBM": (
+        "High-performance histogram-based gradient boosting. Uses leaf-wise growth "
+        "to optimize complex non-linear feature interactions efficiently."
+    ),
+    "XGBoost": (
+        "State-of-the-art scalable gradient boosted trees with second-order gradient "
+        "optimization and tree regularization for maximum generalization accuracy."
     ),
 }
 

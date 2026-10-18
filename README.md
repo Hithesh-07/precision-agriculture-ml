@@ -53,12 +53,15 @@ All models were evaluated on the **held-out 20% test split** with `random_state=
 ### Results on Curated Model-Ready Dataset (2000–2020)
 | Model | MAE (tonnes/ha) | RMSE (tonnes/ha) | R² Score | Status |
 | :--- | :---: | :---: | :---: | :---: |
-| **Linear Regression** | 68.7350 | 842.1751 | -0.0059 | Baseline |
-| **Decision Tree Regressor** | **7.9144** | **121.4133** | **0.9791** | ⭐ **Selected Best Model** |
-| **Random Forest Regressor** | 12.1997 | 190.0501 | 0.9488 | Ensemble Candidate |
+| **XGBoost Regressor** | **7.8806** | **112.1506** | **0.9822** | ⭐ **Selected Best Model** |
+| **LightGBM Regressor** | 7.9818 | 119.7176 | 0.9797 | Fast Boosting Candidate |
+| **Decision Tree Regressor** | 7.9144 | 121.4133 | 0.9791 | Decision Surface Baseline |
+| **Gradient Boosting Regressor** | 11.4477 | 173.1180 | 0.9575 | Ensemble Boosting |
+| **Random Forest Regressor** | 12.1997 | 190.0501 | 0.9488 | Bagging Ensemble |
+| **Linear Regression** | 68.7350 | 842.1751 | -0.0059 | Linear Baseline |
 
 ### Chronological Out-of-Sample Evaluation (Time-Based Split: Train ≤2015, Test >2015)
-- **Decision Tree Regressor:** MAE = 8.60 t/ha, RMSE = 107.92 t/ha, R² = 0.9839
+- **XGBoost Regressor:** MAE = 7.94 t/ha, RMSE = 104.12 t/ha, R² = 0.9845
 - Demonstrates strong out-of-time stability across unseen subsequent agricultural seasons.
 
 *Note: R² measures the proportion of variance explained by the model (upper bounded by 1.0). It is not classification accuracy. MAE and RMSE are expressed in tonnes per hectare.*

@@ -73,12 +73,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dataset",
         choices=["original", "model_ready"],
-        default="original",
+        default="model_ready",
         help=(
             "Which dataset to train on. "
-            "'original' = data/crop_yield.csv (1997-2020, 19,689 rows). "
-            "'model_ready' = cropzen_model_ready_2000_2020.csv (2000-2020, 17,983 rows). "
-            "Default: original."
+            "'model_ready' = cropzen_model_ready_2000_2020.csv (2000-2020, 17,983 rows, default). "
+            "'original' = data/crop_yield.csv (1997-2020, 19,689 rows)."
         ),
     )
     parser.add_argument(
