@@ -55,8 +55,18 @@ def predict_single(input_dict: dict) -> dict:
     y_log = pipeline.predict(X)
     y_pred = float(np.expm1(np.clip(y_log[0], -1, 20)))
 
+    crop = str(input_dict.get("Crop", "")).strip()
+    from src.data_processing import get_crop_unit, convert_coconut_yield
+    unit = get_crop_unit(crop)
+    
+    # Calculate converted mass if coconut (using standard 1.4 kg/nut)
+    converted_yield_tonnes = convert_coconut_yield(y_pred, weight_kg=1.4) if unit == "nuts/ha" else y_pred
+
     return {
         "predicted_yield": round(y_pred, 4),
+        "target_unit": unit,
+        "converted_yield_tonnes": round(converted_yield_tonnes, 4),
+        "conversion_applied": (unit == "nuts/ha"),
         "model_name": eval_meta.get("best_model", "Unknown"),
         "out_of_range_warnings": warnings,
     }
@@ -135,6 +145,7 @@ def predict_batch(df: pd.DataFrame, schema: dict) -> pd.DataFrame:
     Returns a copy of df with added columns: Predicted_Yield, Prediction_Status, Prediction_Error.
     """
     pipeline = load_best_model()
+    from src.data_processing import get_crop_unit, convert_coconut_yield
     results = []
 
     for idx, row in df.iterrows():
@@ -148,14 +159,22 @@ def predict_batch(df: pd.DataFrame, schema: dict) -> pd.DataFrame:
             X = prepare_single_record(input_dict, schema)
             y_log = pipeline.predict(X)
             y_pred = float(np.expm1(np.clip(y_log[0], -1, 20)))
+            crop = str(input_dict.get("Crop", "")).strip()
+            unit = get_crop_unit(crop)
+            conv_val = convert_coconut_yield(y_pred, weight_kg=1.4) if unit == "nuts/ha" else y_pred
+
             results.append({
                 "Predicted_Yield": round(y_pred, 4),
+                "Yield_Unit": unit,
+                "Converted_Yield_Tonnes": round(conv_val, 4),
                 "Prediction_Status": "OK",
                 "Prediction_Error": "",
             })
         except ValueError as e:
             results.append({
                 "Predicted_Yield": None,
+                "Yield_Unit": None,
+                "Converted_Yield_Tonnes": None,
                 "Prediction_Status": "ERROR",
                 "Prediction_Error": str(e),
             })
@@ -163,6 +182,8 @@ def predict_batch(df: pd.DataFrame, schema: dict) -> pd.DataFrame:
     result_df = df.copy()
     result_meta = pd.DataFrame(results, index=df.index)
     result_df["Predicted_Yield"] = result_meta["Predicted_Yield"]
+    result_df["Yield_Unit"] = result_meta["Yield_Unit"]
+    result_df["Converted_Yield_Tonnes"] = result_meta["Converted_Yield_Tonnes"]
     result_df["Prediction_Status"] = result_meta["Prediction_Status"]
     result_df["Prediction_Error"] = result_meta["Prediction_Error"]
 

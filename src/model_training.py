@@ -39,7 +39,6 @@ OUTPUTS_DIR = BASE_DIR / "outputs"
 RANDOM_SEED = 42
 TEST_SIZE = 0.2
 
-# ── model definitions ─────────────────────────────────────────────────────────
 MODEL_CONFIGS = {
     "Linear Regression": LinearRegression(),
     "Decision Tree": DecisionTreeRegressor(
@@ -61,8 +60,8 @@ MODEL_CONFIGS = {
         random_state=RANDOM_SEED,
     ),
     "LightGBM": LGBMRegressor(
-        n_estimators=250,
-        learning_rate=0.05,
+        n_estimators=300,
+        learning_rate=0.045,
         num_leaves=255,
         min_child_samples=5,
         random_state=RANDOM_SEED,
@@ -250,35 +249,35 @@ def select_best_model(results: dict) -> str:
 
 
 # ── feature importance ────────────────────────────────────────────────────────
-def get_feature_importance(pipeline: Pipeline, feature_names: list[str]) -> dict | None:
+def get_feature_importance(pipeline: Pipeline, feature_names: list[str] | None = None) -> dict | None:
     """
     Extract feature importance from the trained pipeline.
-    - RandomForest / DecisionTree: use native feature_importances_.
+    - RandomForest / DecisionTree / XGBoost / LightGBM: use native feature_importances_.
     - LinearRegression: use absolute coefficient values (normalised).
     Returns dict mapping feature_name -> importance (0..1) or None on failure.
     """
     try:
+        from src.data_processing import TRANSFORMED_FEATURE_NAMES
         model = pipeline.named_steps["model"]
-        preprocessor = pipeline.named_steps["preprocessor"]
-
-        # Get transformed feature names
-        cat_names = feature_names[:3]   # Crop, Season, State
-        num_names = feature_names[3:]   # Crop_Year, Area, …
-
-        all_names = cat_names + num_names
+        names = TRANSFORMED_FEATURE_NAMES if feature_names is None or len(feature_names) != len(TRANSFORMED_FEATURE_NAMES) else feature_names
 
         if hasattr(model, "feature_importances_"):
             importances = model.feature_importances_
         elif hasattr(model, "coef_"):
             importances = np.abs(model.coef_)
-            importances = importances / importances.sum()
+            importances = importances / (importances.sum() + 1e-12)
         else:
             return None
 
-        if len(importances) != len(all_names):
-            return None
+        if len(importances) == len(names):
+            return dict(zip(names, importances.tolist()))
+        elif len(importances) == len(feature_names or []):
+            return dict(zip(feature_names, importances.tolist()))
+        return None
 
-        return dict(zip(all_names, importances.tolist()))
+    except Exception as exc:
+        logger.warning("Feature importance extraction failed: %s", exc)
+        return None
 
     except Exception as exc:
         logger.warning("Feature importance extraction failed: %s", exc)

@@ -409,3 +409,101 @@ class TestMultiDatasetIntegrity:
         df = data_processing.load_model_ready_data()
         assert df is None
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. Coconut Unit Standardization and Conversion Tests
+# ─────────────────────────────────────────────────────────────────────────────
+class TestCoconutConversionAndUnits:
+    def test_coconut_conversion_formula_1_3kg(self):
+        """10,000 nuts/ha * 1.3 kg / 1000 = 13.0 metric tonnes/ha."""
+        from src.data_processing import convert_coconut_yield
+        res = convert_coconut_yield(10000.0, weight_kg=1.3)
+        assert abs(res - 13.0) < 1e-6
+
+    def test_coconut_conversion_formula_1_4kg(self):
+        """10,000 nuts/ha * 1.4 kg / 1000 = 14.0 metric tonnes/ha."""
+        from src.data_processing import convert_coconut_yield
+        res = convert_coconut_yield(10000.0, weight_kg=1.4)
+        assert abs(res - 14.0) < 1e-6
+
+    def test_coconut_conversion_formula_1_5kg(self):
+        """10,000 nuts/ha * 1.5 kg / 1000 = 15.0 metric tonnes/ha."""
+        from src.data_processing import convert_coconut_yield
+        res = convert_coconut_yield(10000.0, weight_kg=1.5)
+        assert abs(res - 15.0) < 1e-6
+
+    def test_invalid_negative_conversion_weight_raises(self):
+        from src.data_processing import convert_coconut_yield
+        with pytest.raises(ValueError, match="strictly positive"):
+            convert_coconut_yield(5000.0, weight_kg=-1.4)
+        with pytest.raises(ValueError, match="strictly positive"):
+            convert_coconut_yield(5000.0, weight_kg=0.0)
+
+    def test_crop_unit_mapping(self):
+        from src.data_processing import get_crop_unit
+        assert get_crop_unit("Coconut") == "nuts/ha"
+        assert get_crop_unit("Rice") == "tonnes/ha"
+        assert get_crop_unit("Wheat") == "tonnes/ha"
+        assert get_crop_unit("Sugarcane") == "tonnes/ha"
+
+    def test_predict_single_returns_correct_unit_and_conversion(self):
+        from src.prediction import predict_single
+        coco_input = {
+            "Crop": "Coconut",
+            "Season": "Whole Year",
+            "State": "Kerala",
+            "Crop_Year": 2018,
+            "Area": 5000.0,
+            "Annual_Rainfall": 2500.0,
+            "Fertilizer": 400000.0,
+            "Pesticide": 2000.0,
+        }
+        res = predict_single(coco_input)
+        assert res["target_unit"] == "nuts/ha"
+        assert res["conversion_applied"] is True
+        assert res["predicted_yield"] > 0
+        # Converted tonnes must equal predicted_yield * 1.4 / 1000
+        expected_tonnes = round(res["predicted_yield"] * 1.4 / 1000.0, 4)
+        assert abs(res["converted_yield_tonnes"] - expected_tonnes) < 1e-4
+
+    def test_non_coconut_predict_single_has_no_conversion(self):
+        from src.prediction import predict_single
+        rice_input = {
+            "Crop": "Rice",
+            "Season": "Kharif",
+            "State": "Uttar Pradesh",
+            "Crop_Year": 2018,
+            "Area": 5000.0,
+            "Annual_Rainfall": 900.0,
+            "Fertilizer": 500000.0,
+            "Pesticide": 1000.0,
+        }
+        res = predict_single(rice_input)
+        assert res["target_unit"] == "tonnes/ha"
+        assert res["conversion_applied"] is False
+        assert res["converted_yield_tonnes"] == res["predicted_yield"]
+
+    def test_predict_batch_includes_unit_and_conversion_columns(self):
+        from src.prediction import predict_batch
+        from src.data_processing import load_schema_info
+        schema = load_schema_info()
+        sample_batch = pd.DataFrame([
+            {
+                "Crop": "Rice", "Crop_Year": 2018, "Season": "Kharif",
+                "State": "Uttar Pradesh", "Area": 5000.0,
+                "Annual_Rainfall": 900.0, "Fertilizer": 500000.0, "Pesticide": 1000.0,
+            },
+            {
+                "Crop": "Coconut", "Crop_Year": 2018, "Season": "Whole Year",
+                "State": "Kerala", "Area": 5000.0,
+                "Annual_Rainfall": 2500.0, "Fertilizer": 400000.0, "Pesticide": 2000.0,
+            }
+        ])
+        res_df = predict_batch(sample_batch, schema)
+        assert "Predicted_Yield" in res_df.columns
+        assert "Yield_Unit" in res_df.columns
+        assert "Converted_Yield_Tonnes" in res_df.columns
+        assert res_df.loc[0, "Yield_Unit"] == "tonnes/ha"
+        assert res_df.loc[1, "Yield_Unit"] == "nuts/ha"
+        assert res_df.loc[1, "Converted_Yield_Tonnes"] > 0
+

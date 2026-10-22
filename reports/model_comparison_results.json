@@ -1,0 +1,92 @@
+[
+  {
+    "name": "1. Baseline XGBoost (log1p, base features)",
+    "cv_mae": 11.418678196392806,
+    "cv_rmse": 179.34614183546032,
+    "cv_r2": 0.9545517129804477,
+    "test_mae": 7.880553528017046,
+    "test_rmse": 112.15062248242776,
+    "test_r2": 0.9821624556656131,
+    "elapsed_sec": 16.0
+  },
+  {
+    "name": "2. XGBoost Raw Yield (squared_error, base features)",
+    "cv_mae": 16.695531572704237,
+    "cv_rmse": 177.80139314397334,
+    "cv_r2": 0.9602488028285341,
+    "test_mae": 12.467663379407707,
+    "test_rmse": 126.67650105614958,
+    "test_r2": 0.9772425390067501,
+    "elapsed_sec": 6.5
+  },
+  {
+    "name": "3. XGBoost Raw Yield + Engineered Features",
+    "cv_mae": 12.645924641232224,
+    "cv_rmse": 161.21268811614658,
+    "cv_r2": 0.9661190968455186,
+    "test_mae": 8.795221766754244,
+    "test_rmse": 106.33532491249034,
+    "test_r2": 0.9839643409579918,
+    "elapsed_sec": 8.9
+  },
+  {
+    "name": "4. XGBoost log1p + Engineered Features (Tuned)",
+    "cv_mae": 12.353965059024572,
+    "cv_rmse": 193.06090703800646,
+    "cv_r2": 0.9514363218542565,
+    "test_mae": 8.962086595240988,
+    "test_rmse": 140.21597715223405,
+    "test_r2": 0.9721178220625164,
+    "elapsed_sec": 13.4
+  },
+  {
+    "name": "5. LightGBM log1p + Engineered Features (Tuned)",
+    "cv_mae": 16.621573475913713,
+    "cv_rmse": 311.718900410118,
+    "cv_r2": 0.8634730243807522,
+    "test_mae": 15.473507762538121,
+    "test_rmse": 233.6061340950468,
+    "test_r2": 0.9226072687549384,
+    "elapsed_sec": 10.0
+  },
+  {
+    "name": "6. LightGBM Raw Huber Loss + Engineered Features",
+    "cv_mae": 143.24178216499504,
+    "cv_rmse": 897.681880002891,
+    "cv_r2": 0.00551796933717259,
+    "test_mae": 128.74790738795184,
+    "test_rmse": 837.3528359822946,
+    "test_r2": 0.005628473909396692,
+    "elapsed_sec": 4.5
+  },
+  {
+    "name": "7. HistGradientBoosting (log1p + Eng Features)",
+    "cv_mae": 18.221126965897795,
+    "cv_rmse": 314.76382928943735,
+    "cv_r2": 0.8647690366004946,
+    "test_mae": 17.12042544222253,
+    "test_rmse": 249.25429484103793,
+    "test_r2": 0.9118916660482613,
+    "elapsed_sec": 8.2
+  },
+  {
+    "name": "8. Extra Trees Regressor (log1p + Eng Features)",
+    "cv_mae": 29.77217431331325,
+    "cv_rmse": 419.7030950718252,
+    "cv_r2": 0.7829077082928757,
+    "test_mae": 24.990207423392917,
+    "test_rmse": 371.5140548216265,
+    "test_r2": 0.8042588275898427,
+    "elapsed_sec": 3.4
+  },
+  {
+    "name": "9. Random Forest Regressor (log1p + Eng Features)",
+    "cv_mae": 15.76180994844861,
+    "cv_rmse": 267.4708827041304,
+    "cv_r2": 0.9003745500117762,
+    "test_mae": 10.466551648420854,
+    "test_rmse": 154.49634590707598,
+    "test_r2": 0.9661492642266537,
+    "elapsed_sec": 7.1
+  }
+]

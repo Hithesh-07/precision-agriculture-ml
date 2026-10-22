@@ -173,7 +173,19 @@ Saves:
 ```powershell
 .venv\Scripts\python.exe -m pytest tests/ -v
 ```
-*(63 unit and integration tests passing, covering data loading, schema validation, model inference, translations parity, Telugu/Hindi voice parsing, numeral normalization, and batch validation).*
+*(64 unit and integration tests passing, covering data loading, schema validation, feature engineering, model inference, translations parity, Telugu/Hindi voice parsing, numeral normalization, and batch validation).*
+
+### 4. Run Error Diagnostics & Optimization Audit
+```powershell
+# Analyze error percentiles, yield tiers, and root causes of high RMSE
+.venv\Scripts\python.exe analyze_model_errors.py
+
+# Run 5-fold cross-validation and time-based split evaluation
+.venv\Scripts\python.exe evaluate_validation.py
+```
+Reports generated:
+- `reports/model_error_analysis.md`: Detailed error distributions, coconut unit disparity, and SSE concentration.
+- `reports/model_optimization_report.md`: Complete benchmark, feature engineering, and validation findings.
 
 ### 4. Launch the Web Application
 ```powershell

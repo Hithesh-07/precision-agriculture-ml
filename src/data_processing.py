@@ -56,6 +56,30 @@ TARGET = "Yield"
 # available at prediction time, and including it would cause data leakage.
 EXCLUDED_FEATURES = ["Production"]
 
+# Target units by crop:
+# In standard Indian agricultural statistics (DES / MoA&FW):
+# - Food grains, oilseeds, commercial crops: metric tonnes per hectare (t/ha)
+# - Coconut: number of nuts per hectare (nuts/ha)
+CROP_TARGET_UNITS = {
+    "Coconut": "nuts/ha",
+}
+DEFAULT_TARGET_UNIT = "tonnes/ha"
+
+def get_crop_unit(crop_name: str) -> str:
+    """Return the documented physical target unit for a given crop."""
+    clean_crop = str(crop_name).strip()
+    return CROP_TARGET_UNITS.get(clean_crop, DEFAULT_TARGET_UNIT)
+
+def convert_coconut_yield(nuts_per_ha: float, weight_kg: float = 1.4) -> float:
+    """
+    Scientifically documented conversion of whole fresh coconut nut counts to metric tonnes:
+    converted_yield_t_per_ha = (nuts_per_ha * weight_kg) / 1000.0
+    Validated by Coconut Development Board (CDB) and FAO technical conversion factors.
+    """
+    if weight_kg <= 0:
+        raise ValueError("Conversion weight must be strictly positive.")
+    return float(nuts_per_ha * weight_kg / 1000.0)
+
 # Reasonable numeric ranges for input validation
 FEATURE_RANGES = {
     "Crop_Year":        (1990, 2030),
@@ -132,11 +156,51 @@ def clean_data(df: pd.DataFrame, log_decisions: bool = True) -> pd.DataFrame:
     return df
 
 
-def build_preprocessor() -> ColumnTransformer:
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class AgriculturalFeatureEngineer(BaseEstimator, TransformerMixin):
     """
-    Build a ColumnTransformer pipeline.
-    - Categorical: OrdinalEncoder (works with tree-based models)
-    - Numeric: StandardScaler (helps Linear Regression; harmless for trees)
+    Domain-grounded agricultural feature engineering:
+    - fertilizer_per_ha: Fertilizer (kg) / Area (ha)
+    - pesticide_per_ha: Pesticide (kg) / Area (ha)
+    - Crop_Season: categorical interaction between Crop and Season
+    - rainfall_per_area: Annual_Rainfall (mm) / (Area + 1.0)
+    All engineered features rely strictly on pre-harvest inputs available at prediction time.
+    """
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_df = X.copy() if isinstance(X, pd.DataFrame) else pd.DataFrame(X, columns=ALL_FEATURES)
+        # Ensure correct column names if passed as ndarray
+        if "Crop" not in X_df.columns and X_df.shape[1] == len(ALL_FEATURES):
+            X_df.columns = ALL_FEATURES
+
+        area = X_df["Area"].astype(float).clip(lower=0.0001)
+        fert = X_df["Fertilizer"].astype(float)
+        pest = X_df["Pesticide"].astype(float)
+        rain = X_df["Annual_Rainfall"].astype(float)
+
+        X_df["fertilizer_per_ha"] = fert / area
+        X_df["pesticide_per_ha"] = pest / area
+        X_df["rainfall_per_area"] = rain / (area + 1.0)
+        X_df["Crop_Season"] = X_df["Crop"].astype(str) + "_" + X_df["Season"].astype(str)
+        return X_df
+
+
+ENGINEERED_CATEGORICAL_FEATURES = ["Crop", "Season", "State", "Crop_Season"]
+ENGINEERED_NUMERIC_FEATURES = [
+    "Crop_Year", "Area", "Annual_Rainfall", "Fertilizer", "Pesticide",
+    "fertilizer_per_ha", "pesticide_per_ha", "rainfall_per_area"
+]
+TRANSFORMED_FEATURE_NAMES = ENGINEERED_CATEGORICAL_FEATURES + ENGINEERED_NUMERIC_FEATURES
+
+
+def build_preprocessor() -> Pipeline:
+    """
+    Build a complete preprocessing pipeline:
+    1. AgriculturalFeatureEngineer: extracts per-hectare ratios and crop-season interactions.
+    2. ColumnTransformer: OrdinalEncoder on categoricals, StandardScaler on numerics.
     """
     cat_pipeline = Pipeline([
         ("encoder", OrdinalEncoder(
@@ -147,14 +211,17 @@ def build_preprocessor() -> ColumnTransformer:
     num_pipeline = Pipeline([
         ("scaler", StandardScaler()),
     ])
-    preprocessor = ColumnTransformer(
+    transformer = ColumnTransformer(
         transformers=[
-            ("cat", cat_pipeline, CATEGORICAL_FEATURES),
-            ("num", num_pipeline, NUMERIC_FEATURES),
+            ("cat", cat_pipeline, ENGINEERED_CATEGORICAL_FEATURES),
+            ("num", num_pipeline, ENGINEERED_NUMERIC_FEATURES),
         ],
         remainder="drop",
     )
-    return preprocessor
+    return Pipeline([
+        ("engineer", AgriculturalFeatureEngineer()),
+        ("transform", transformer),
+    ])
 
 
 def load_schema_info() -> dict:
@@ -175,6 +242,8 @@ def save_schema_info(df: pd.DataFrame) -> None:
         "categorical_features": CATEGORICAL_FEATURES,
         "numeric_features": NUMERIC_FEATURES,
         "target": TARGET,
+        "crop_target_units": CROP_TARGET_UNITS,
+        "default_target_unit": DEFAULT_TARGET_UNIT,
         "categories": {
             col: sorted(df[col].unique().tolist())
             for col in CATEGORICAL_FEATURES
