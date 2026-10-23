@@ -36,7 +36,8 @@ class TestDataLoading:
 
     def test_dataset_row_count(self):
         df = load_raw_data()
-        assert len(df) == 19689, f"Expected 19689 rows, got {len(df)}"
+        assert len(df) == 20689, f"Expected 20689 rows, got {len(df)}"
+        assert df["Crop_Year"].max() == 2025, f"Expected max year 2025, got {df['Crop_Year'].max()}"
 
     def test_required_columns_present(self):
         df = load_raw_data()
@@ -370,7 +371,8 @@ class TestMultiDatasetIntegrity:
         from src.data_processing import load_model_ready_data
         df = load_model_ready_data()
         assert df is not None
-        assert len(df) == 17983
+        assert len(df) == 18983
+        assert df["Crop_Year"].max() == 2025
         assert "Yield" in df.columns
         assert "Annual_Rainfall" in df.columns
 
